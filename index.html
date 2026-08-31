@@ -1540,7 +1540,7 @@ document.getElementById('btnAiGenerate').addEventListener('click', async () => {
     renderAiResults(data.title, data.scenes);
   } catch (e) {
     resultArea.innerHTML = '<div class="ai-error">Không tạo được kịch bản: ' + (e.message || 'lỗi không rõ') +
-      '<br><br>Lưu ý: tính năng này cần app đã được deploy lên Vercel kèm ANTHROPIC_API_KEY — sẽ không hoạt động khi mở trực tiếp file HTML.</div>';
+      '<br><br>Lưu ý: tính năng này cần app đã được deploy lên Vercel kèm GEMINI_API_KEY.</div>';
   }
 });
 
@@ -1574,13 +1574,29 @@ function renderAiResults(title, scenes) {
     });
     area.appendChild(card);
   });
+
+  // Hàng nút bấm
   const btnRow = document.createElement('div');
-  btnRow.style.cssText = 'display:flex;gap:10px;margin-top:14px;';
+  btnRow.style.cssText = 'display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;';
+  
+  // Nút "Thêm tất cả vào dải phim"
   const btnApply = document.createElement('button');
-  btnApply.className = 'btn btn-primary'; btnApply.style.flex = '1'; btnApply.style.justifyContent = 'center';
+  btnApply.className = 'btn btn-primary';
+  btnApply.style.flex = '1';
+  btnApply.style.justifyContent = 'center';
   btnApply.textContent = 'Thêm tất cả vào dải phim';
   btnApply.onclick = () => applyAiScenesToTimeline(aiLastScenes);
   btnRow.appendChild(btnApply);
+
+  // ➕ Nút "🎵 Gợi ý nhạc nền" - ĐÃ ĐƯỢC THÊM VÀO ĐÂY
+  const btnSuggest = document.createElement('button');
+  btnSuggest.className = 'btn';
+  btnSuggest.style.flex = '1';
+  btnSuggest.style.justifyContent = 'center';
+  btnSuggest.textContent = '🎵 Gợi ý nhạc nền';
+  btnSuggest.onclick = () => suggestMusicForScript(aiLastScenes, title);
+  btnRow.appendChild(btnSuggest);
+
   area.appendChild(btnRow);
 }
 
@@ -1610,6 +1626,50 @@ async function applyAiScenesToTimeline(scenes) {
   renderPreviewStatic();
   closeAiScriptModal();
   toast('Đã thêm ' + scenes.length + ' cảnh — nhớ đổi ảnh giữ chỗ thành ảnh/video thật nhé!');
+}
+
+// =====================================================================
+// 🎵 Gợi ý nhạc nền từ AI
+// =====================================================================
+async function suggestMusicForScript(scenes, title) {
+  // Thu thập toàn bộ lời thoại từ các cảnh
+  const scriptText = scenes.map((s, i) => `Cảnh ${i+1}: ${s.narration || ''}`).join('\n');
+  const resultArea = document.getElementById('aiResultArea');
+  
+  // Hiển thị trạng thái đang tải
+  const loadingDiv = document.createElement('div');
+  loadingDiv.className = 'ai-loading';
+  loadingDiv.innerHTML = '<div class="ai-spinner"></div><div>AI đang phân tích và gợi ý nhạc nền…</div>';
+  resultArea.appendChild(loadingDiv);
+
+  try {
+    const res = await fetch('/api/suggest-music', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, script: scriptText }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Lỗi gọi API');
+
+    // Xóa loading
+    loadingDiv.remove();
+
+    // Hiển thị kết quả gợi ý
+    const suggestBox = document.createElement('div');
+    suggestBox.style.cssText = 'margin-top:12px;padding:14px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;';
+    suggestBox.innerHTML = `
+      <div style="font-weight:600;color:var(--gold);margin-bottom:6px;">🎵 Gợi ý nhạc nền</div>
+      <div style="font-size:13px;line-height:1.7;color:var(--text);">${data.suggestion || 'Không có gợi ý.'}</div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text-muted);">💡 Bạn có thể tìm các bài hát này trên YouTube hoặc các trang nhạc miễn phí.</div>
+    `;
+    resultArea.appendChild(suggestBox);
+  } catch (e) {
+    loadingDiv.remove();
+    const errorBox = document.createElement('div');
+    errorBox.className = 'ai-error';
+    errorBox.textContent = 'Không thể lấy gợi ý nhạc: ' + (e.message || 'lỗi không rõ');
+    resultArea.appendChild(errorBox);
+  }
 }
 
 // =====================================================================
