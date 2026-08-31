@@ -1,25 +1,27 @@
-// api/generate-script.js
-// Vercel Serverless Function — proxy gọi Anthropic API để viết kịch bản video.
-// Giữ API key ở server, KHÔNG bao giờ lộ ra phía trình duyệt.
-//
+// api/generate-script-gemini.js
+// Đây là "người giúp việc" sẽ gọi AI Gemini để viết kịch bản.
+
 // Cách cấu hình:
-//  1. Lấy API key tại https://console.anthropic.com (mục API Keys)
-//  2. Vào Vercel Project Settings → Environment Variables
-//  3. Thêm biến: ANTHROPIC_API_KEY = <key của Thầy>
-//  4. Redeploy lại project để biến môi trường có hiệu lực.
+// 1. Lấy API key tại https://aistudio.google.com/app/apikey
+// 2. Vào Vercel Project Settings → Environment Variables
+// 3. Thêm biến: GEMINI_API_KEY = <API Key của bạn>
+// 4. Redeploy lại project.
 
 module.exports = async (req, res) => {
+  // Chỉ cho phép gửi dữ liệu lên bằng phương thức POST
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Chỉ hỗ trợ phương thức POST.' });
     return;
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // Lấy API Key từ biến môi trường (đã cài đặt trên Vercel)
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    res.status(500).json({ error: 'Server chưa cấu hình ANTHROPIC_API_KEY. Hãy thêm biến môi trường này trong Vercel Project Settings rồi deploy lại.' });
+    res.status(500).json({ error: 'Server chưa cấu hình GEMINI_API_KEY.' });
     return;
   }
 
+  // Đọc dữ liệu gửi lên từ trình duyệt
   let body = req.body;
   if (typeof body === 'string') {
     try { body = JSON.parse(body); } catch (e) { body = {}; }
@@ -35,51 +37,57 @@ module.exports = async (req, res) => {
     return;
   }
 
+  // Phần hướng dẫn cho AI, dựa trên mục đích video
   const purposeGuide = {
-    gdcd: 'Đây là video bài giảng môn Giáo dục công dân (GDCD) cấp Trung học cơ sở tại Việt Nam. Văn phong chuẩn mực, dễ hiểu với học sinh, mang tính giáo dục, tránh nói quá hoặc gây tranh cãi, phù hợp môi trường lớp học.',
-    song: 'Đây là video quảng bá / giới thiệu một sáng tác âm nhạc tiếng Việt. Văn phong giàu cảm xúc, lôi cuốn, phù hợp đăng lên mạng xã hội.',
-    other: 'Đây là một video ngắn nói chung, dùng cho mục đích cá nhân. Văn phong tự nhiên, mạch lạc, dễ nghe.',
+    gdcd: 'Đây là video bài giảng môn Giáo dục công dân (GDCD) cấp Trung học cơ sở tại Việt Nam. Văn phong chuẩn mực, dễ hiểu với học sinh, mang tính giáo dục.',
+    song: 'Đây là video quảng bá một sáng tác âm nhạc tiếng Việt. Văn phong giàu cảm xúc, lôi cuốn.',
+    other: 'Đây là một video ngắn nói chung. Văn phong tự nhiên, mạch lạc, dễ nghe.',
   }[purpose];
 
-  const systemPrompt = [
-    'Bạn là biên kịch video chuyên nghiệp, viết bằng tiếng Việt tự nhiên, trong sáng.',
-    purposeGuide,
-    'Nhiệm vụ: chia nội dung người dùng mô tả thành khoảng ' + sceneCountHint + ' cảnh video ngắn nối tiếp nhau, mạch lạc từ mở đầu đến kết thúc.',
-    'Mỗi cảnh gồm các trường:',
-    '- "visualIdea": mô tả ngắn gọn hình ảnh nên dùng cho cảnh này (để người dùng tự tìm hoặc chụp ảnh phù hợp), không cần văn hoa.',
-    '- "caption": phụ đề ngắn hiện trên màn hình, dưới 18 từ, súc tích.',
-    '- "narration": lời đọc/thuyết minh đầy đủ cho cảnh, khoảng 1-3 câu, viết để đọc thành tiếng tự nhiên.',
-    '- "durationSec": số giây đề xuất cho cảnh (ước lượng theo tốc độ đọc lời thoại, khoảng 150 từ/phút tiếng Việt), trong khoảng 3-12.',
-    'CHỈ trả lời bằng một khối JSON hợp lệ duy nhất theo đúng cấu trúc sau, không thêm bất kỳ chữ nào khác, không dùng markdown code fence:',
-    '{"title": string, "scenes": [{"visualIdea": string, "caption": string, "narration": string, "durationSec": number}]}',
-  ].join(' ');
+  // Lời "ra lệnh" (prompt) cho AI
+  const prompt = `
+Bạn là biên kịch video chuyên nghiệp, viết bằng tiếng Việt tự nhiên.
+${purposeGuide}
+Nhiệm vụ: chia nội dung người dùng mô tả thành khoảng ${sceneCountHint} cảnh video ngắn.
+Mỗi cảnh gồm các trường:
+- "visualIdea": mô tả ngắn gọn hình ảnh cho cảnh này.
+- "caption": phụ đề ngắn, dưới 18 từ.
+- "narration": lời thuyết minh, khoảng 1-3 câu.
+- "durationSec": số giây đề xuất cho cảnh (3-12 giây).
+CHỈ trả lời bằng một khối JSON duy nhất, không thêm bất kỳ chữ nào khác, theo cấu trúc:
+{"title": string, "scenes": [{"visualIdea": string, "caption": string, "narration": string, "durationSec": number}]}
+
+Chủ đề / mô tả video: ${topic}
+  `;
 
   try {
-    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
+    // Gửi yêu cầu đến AI Gemini
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        max_tokens: 2200,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: 'Chủ đề / mô tả video: ' + topic }],
+        contents: [{
+          parts: [{ text: prompt }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2200,
+        }
       }),
     });
 
-    if (!upstream.ok) {
-      const errText = await upstream.text();
-      res.status(502).json({ error: 'Lỗi gọi AI (mã ' + upstream.status + ').', detail: errText.slice(0, 500) });
+    if (!response.ok) {
+      const errText = await response.text();
+      res.status(502).json({ error: 'Lỗi gọi AI Gemini', detail: errText.slice(0, 500) });
       return;
     }
 
-    const data = await upstream.json();
-    const textBlock = (data.content || []).find((b) => b.type === 'text');
-    const raw = textBlock ? textBlock.text : '';
-    const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const data = await response.json();
+    // Lấy phần văn bản trả về từ AI
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    // Làm sạch văn bản (loại bỏ ```json ... ``` nếu có)
+    const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
 
     let parsed;
     try {
@@ -94,6 +102,7 @@ module.exports = async (req, res) => {
       return;
     }
 
+    // Trả kết quả về cho trình duyệt
     res.status(200).json({
       title: (parsed.title || '').toString().slice(0, 200),
       scenes: parsed.scenes.slice(0, 12).map((s) => ({
