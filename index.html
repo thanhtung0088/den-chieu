@@ -1528,7 +1528,7 @@ document.getElementById('btnAiGenerate').addEventListener('click', async () => {
   resultArea.innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div><div>AI đang viết kịch bản…</div></div>';
 
   try {
-    const res = await fetch('/api/generate-script', {
+    const res = await fetch('/api/generate-script-gemini', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ topic, purpose: aiPurpose, sceneCountHint }),
