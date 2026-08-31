@@ -1,39 +1,35 @@
 // api/suggest-lipsync.js
-// Gọi Gemini để tạo kịch bản hát nhép từ ảnh + lời bài hát
+// API gọi Gemini tạo kịch bản hát nhép – đã tối ưu, bắt lỗi JSON
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Chỉ hỗ trợ POST.' });
-    return;
+    return res.status(405).json({ error: 'Chỉ hỗ trợ POST.' });
   }
 
+  // Lấy API key từ biến môi trường
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    res.status(500).json({ error: 'Thiếu GEMINI_API_KEY' });
-    return;
+    return res.status(500).json({ error: 'Thiếu GEMINI_API_KEY. Hãy thêm biến môi trường trên Vercel.' });
   }
 
-  let body = req.body;
-  if (typeof body === 'string') {
-    try { body = JSON.parse(body); } catch (e) { body = {}; }
+  // Parse body an toàn
+  let body;
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+  } catch (e) {
+    return res.status(400).json({ error: 'Dữ liệu gửi lên không đúng định dạng JSON.' });
   }
-  body = body || {};
 
-  const imageBase64 = body.imageBase64 || '';
-  const audioName = (body.audioName || 'bài hát').slice(0, 50);
-  const lyrics = (body.lyrics || '').slice(0, 3000);
-
+  const { imageBase64, lyrics } = body;
   if (!imageBase64) {
-    res.status(400).json({ error: 'Thiếu ảnh.' });
-    return;
+    return res.status(400).json({ error: 'Thiếu ảnh (imageBase64).' });
   }
-  if (!lyrics) {
-    res.status(400).json({ error: 'Thiếu lời bài hát.' });
-    return;
+  if (!lyrics || lyrics.trim().length === 0) {
+    return res.status(400).json({ error: 'Thiếu lời bài hát.' });
   }
 
-  // Tách lời bài hát thành từng câu
-  const lines = lyrics.split(/\n/).filter(line => line.trim().length > 0);
+  // Tách lời thành từng câu – ưu tiên xuống dòng, nếu ít thì tách theo dấu câu
+  const lines = lyrics.split('\n').filter(line => line.trim().length > 0);
   let sentences = lines;
   if (sentences.length < 3) {
     sentences = lyrics.split(/[.?!;:]/).filter(s => s.trim().length > 2).map(s => s.trim());
@@ -41,32 +37,26 @@ module.exports = async (req, res) => {
   if (sentences.length > 20) sentences = sentences.slice(0, 20);
   if (sentences.length === 0) sentences = ['Bài hát này thật tuyệt vời!'];
 
-  // Tạo prompt cho Gemini
+  // Prompt ngắn gọn, rõ ràng, yêu cầu JSON chính xác
   const prompt = `
-Bạn là đạo diễn video âm nhạc chuyên nghiệp.
-Tôi có một ảnh chân dung của ca sĩ và lời bài hát sau đây (đã được chia thành từng câu). 
-Hãy tạo kịch bản video "hát nhép" (lip sync) cho từng câu hát, mỗi câu là một cảnh.
+Bạn là đạo diễn video âm nhạc. Tạo kịch bản hát nhép (lip sync) cho từng câu hát.
+Mỗi câu là một cảnh, dùng chính ảnh ca sĩ đó.
+Mô tả chuyển động, góc quay, biểu cảm phù hợp với nội dung câu hát.
+Phụ đề là chính câu hát đó.
+Thời lượng mỗi cảnh từ 3 đến 6 giây, tuỳ độ dài câu.
 
-Yêu cầu:
-- Mỗi cảnh sẽ dùng chính ảnh ca sĩ đó (không cần tạo ảnh mới).
-- Mô tả chuyển động, góc quay, biểu cảm phù hợp với nội dung từng câu hát.
-- Phụ đề là chính câu hát đó.
-- Thời lượng mỗi cảnh khoảng 3-6 giây, tùy theo độ dài câu.
-
-Trả về JSON với cấu trúc:
+Trả về JSON duy nhất, không thêm bất kỳ văn bản nào khác, theo cấu trúc:
 {
-  "title": "Tên video (tự động từ nội dung bài hát)",
+  "title": "Tên video ngắn gọn",
   "scenes": [
     {
-      "visualIdea": "mô tả ngắn gọn chuyển động/cảnh quay cho câu hát này",
-      "caption": "chính câu hát (phụ đề)",
-      "narration": "hướng dẫn biểu cảm hoặc cảm xúc cho ca sĩ (ngắn)",
-      "durationSec": số giây (3-6)
+      "visualIdea": "mô tả chuyển động/ góc quay",
+      "caption": "câu hát (phụ đề)",
+      "narration": "hướng dẫn biểu cảm",
+      "durationSec": 4
     }
   ]
 }
-
-CHỈ trả về JSON, không thêm văn bản khác.
 
 Lời bài hát (từng câu):
 ${sentences.map((s, i) => `${i+1}. ${s}`).join('\n')}
@@ -81,7 +71,7 @@ ${sentences.map((s, i) => `${i+1}. ${s}`).join('\n')}
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            temperature: 0.7,
+            temperature: 0.6,
             maxOutputTokens: 2500,
           },
         }),
@@ -90,30 +80,36 @@ ${sentences.map((s, i) => `${i+1}. ${s}`).join('\n')}
 
     if (!response.ok) {
       const errText = await response.text();
-      res.status(502).json({ error: 'Lỗi gọi Gemini', detail: errText.slice(0, 500) });
-      return;
+      return res.status(502).json({
+        error: 'Lỗi từ Gemini API',
+        status: response.status,
+        detail: errText.slice(0, 300),
+      });
     }
 
     const data = await response.json();
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // Loại bỏ markdown code fence nếu có
     const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
 
     let parsed;
     try {
       parsed = JSON.parse(cleaned);
     } catch (e) {
-      res.status(502).json({ error: 'AI trả về không đúng JSON.', raw: cleaned.slice(0, 800) });
-      return;
+      return res.status(502).json({
+        error: 'AI trả về không đúng định dạng JSON.',
+        raw: cleaned.slice(0, 500),
+      });
     }
 
     if (!parsed || !Array.isArray(parsed.scenes) || parsed.scenes.length === 0) {
-      res.status(502).json({ error: 'Kết quả AI thiếu danh sách cảnh.' });
-      return;
+      return res.status(502).json({ error: 'Kết quả AI thiếu danh sách cảnh.' });
     }
 
-    res.status(200).json({
+    // Chuẩn hóa dữ liệu trả về
+    return res.status(200).json({
       title: (parsed.title || 'Video hát nhép').slice(0, 200),
-      scenes: parsed.scenes.slice(0, 20).map((s) => ({
+      scenes: parsed.scenes.slice(0, 20).map(s => ({
         visualIdea: (s.visualIdea || '').slice(0, 300),
         caption: (s.caption || '').slice(0, 200),
         narration: (s.narration || '').slice(0, 600),
@@ -121,6 +117,6 @@ ${sentences.map((s, i) => `${i+1}. ${s}`).join('\n')}
       })),
     });
   } catch (e) {
-    res.status(500).json({ error: 'Lỗi máy chủ: ' + (e.message || 'không rõ') });
+    return res.status(500).json({ error: 'Lỗi máy chủ: ' + e.message });
   }
 };
