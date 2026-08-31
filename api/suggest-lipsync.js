@@ -1,20 +1,15 @@
 // api/suggest-lipsync.js
-// Dùng Gemini 2.5 Flash (Experimental) – bắt buộc trả về JSON
-
+// Dùng Gemini 2.5 Flash – bắt buộc trả về JSON
 module.exports = async (req, res) => {
-  // Chỉ cho phép POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Chỉ hỗ trợ POST.' });
   }
 
-  // Lấy API key
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.error('❌ Thiếu GEMINI_API_KEY');
-    return res.status(500).json({ error: 'Thiếu GEMINI_API_KEY. Hãy thêm biến môi trường trên Vercel.' });
+    return res.status(500).json({ error: 'Thiếu GEMINI_API_KEY.' });
   }
 
-  // Parse body
   let body;
   try {
     body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -23,14 +18,9 @@ module.exports = async (req, res) => {
   }
 
   const { imageBase64, lyrics } = body;
-  if (!imageBase64) {
-    return res.status(400).json({ error: 'Thiếu ảnh (imageBase64).' });
-  }
-  if (!lyrics || lyrics.trim().length === 0) {
-    return res.status(400).json({ error: 'Thiếu lời bài hát.' });
-  }
+  if (!imageBase64) return res.status(400).json({ error: 'Thiếu ảnh.' });
+  if (!lyrics || lyrics.trim().length === 0) return res.status(400).json({ error: 'Thiếu lời bài hát.' });
 
-  // Chia lời thành câu
   const lines = lyrics.split('\n').filter(line => line.trim().length > 0);
   let sentences = lines;
   if (sentences.length < 3) {
@@ -39,35 +29,22 @@ module.exports = async (req, res) => {
   if (sentences.length > 20) sentences = sentences.slice(0, 20);
   if (sentences.length === 0) sentences = ['Bài hát này thật tuyệt vời!'];
 
-  // Prompt yêu cầu JSON rõ ràng
   const prompt = `
-Bạn là đạo diễn video. Tạo kịch bản hát nhép (lip sync) cho từng câu hát.
+Bạn là đạo diễn video. Tạo kịch bản hát nhép cho từng câu hát.
 Mỗi câu là một cảnh, dùng ảnh ca sĩ.
 Mô tả chuyển động, góc quay, biểu cảm.
-Phụ đề là chính câu hát đó.
-Thời lượng mỗi cảnh từ 3 đến 6 giây.
+Phụ đề là chính câu hát.
+Thời lượng mỗi cảnh 3-6 giây.
 
-QUAN TRỌNG: CHỈ trả về JSON hợp lệ, không thêm bất kỳ văn bản nào khác.
+QUAN TRỌNG: CHỈ trả về JSON, không thêm gì khác.
+Cấu trúc:
+{"title": "Tên video", "scenes": [{"visualIdea": "...", "caption": "...", "narration": "...", "durationSec": 4}]}
 
-Cấu trúc JSON:
-{
-  "title": "Tên video ngắn gọn",
-  "scenes": [
-    {
-      "visualIdea": "mô tả chuyển động/góc quay",
-      "caption": "câu hát (phụ đề)",
-      "narration": "hướng dẫn biểu cảm",
-      "durationSec": 4
-    }
-  ]
-}
-
-Lời bài hát (từng câu):
+Lời bài hát:
 ${sentences.map((s, i) => `${i+1}. ${s}`).join('\n')}
   `;
 
   try {
-    // Dùng Gemini 2.5 Flash
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
@@ -76,54 +53,35 @@ ${sentences.map((s, i) => `${i+1}. ${s}`).join('\n')}
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            temperature: 0.4,          // Giảm temperature để JSON ổn định hơn
+            temperature: 0.4,
             maxOutputTokens: 2500,
-            responseMimeType: 'application/json', // ⭐ BẮT BUỘC TRẢ VỀ JSON
+            responseMimeType: 'application/json',
           },
         }),
       }
     );
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.error('❌ Gemini error:', response.status, errText);
-      return res.status(502).json({
-        error: 'Gemini API lỗi',
-        status: response.status,
-        detail: errText.slice(0, 300),
-      });
+      const err = await response.text();
+      return res.status(502).json({ error: 'Gemini lỗi', detail: err.slice(0, 300) });
     }
 
     const data = await response.json();
-    
-    // Lấy text từ response
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    console.log('📝 Raw response:', rawText.slice(0, 200));
-
-    // Nếu đã có responseMimeType: 'application/json', rawText là JSON luôn
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     let parsed;
     try {
-      parsed = JSON.parse(rawText);
+      parsed = JSON.parse(raw);
     } catch (e) {
-      // Fallback: thử làm sạch nếu vẫn bị markdown
-      const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-      try {
-        parsed = JSON.parse(cleaned);
-      } catch (e2) {
-        console.error('❌ Lỗi parse JSON:', rawText.slice(0, 500));
-        return res.status(502).json({
-          error: 'AI trả về không đúng JSON.',
-          raw: rawText.slice(0, 500),
-        });
+      const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+      try { parsed = JSON.parse(cleaned); } catch (e2) {
+        return res.status(502).json({ error: 'AI trả về không đúng JSON.', raw: raw.slice(0, 500) });
       }
     }
 
-    // Kiểm tra cấu trúc
     if (!parsed || !Array.isArray(parsed.scenes) || parsed.scenes.length === 0) {
       return res.status(502).json({ error: 'Thiếu danh sách cảnh.' });
     }
 
-    // Trả về kết quả
     return res.status(200).json({
       title: (parsed.title || 'Video hát nhép').slice(0, 200),
       scenes: parsed.scenes.slice(0, 20).map(s => ({
@@ -134,7 +92,6 @@ ${sentences.map((s, i) => `${i+1}. ${s}`).join('\n')}
       })),
     });
   } catch (e) {
-    console.error('❌ Lỗi server:', e);
     return res.status(500).json({ error: 'Lỗi máy chủ: ' + e.message });
   }
 };
