@@ -248,6 +248,7 @@ canvas.mini-wave{width:100%;height:34px;display:block;margin-top:6px;border-radi
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 6H20M4 12H20M4 18H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
     <button class="btn" id="btnAiScript">✦ AI kịch bản</button>
+    <button class="btn" id="btnLipSync">🎤 Hát nhép AI</button>
     <button class="btn" id="btnProjects">Dự án</button>
     <span class="export-format-chip" id="exportFormatLabel" title="Định dạng file khi xuất video">.webm</span>
     <button class="btn btn-primary" id="btnExport">Xuất video</button>
@@ -368,6 +369,31 @@ canvas.mini-wave{width:100%;height:34px;display:block;margin-top:6px;border-radi
       </div>
       <button class="btn btn-primary" id="btnAiGenerate" style="width:100%;justify-content:center;padding:10px;">Tạo kịch bản</button>
       <div id="aiResultArea" style="margin-top:16px;"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="lipSyncModal">
+  <div class="modal-box wide">
+    <div class="modal-head"><span>🎤 AI hát nhép</span><button class="btn btn-icon btn-sm" id="btnCloseLipSync">✕</button></div>
+    <div class="modal-body" id="lipSyncBody">
+      <div class="field-group" style="padding:0 0 14px;border:none;">
+        <span class="field-label">Ảnh ca sĩ (khuôn mặt)</span>
+        <input type="file" id="lipSyncImage" accept="image/*" style="display:block;margin:6px 0;color:var(--text-muted);font-size:12px;">
+        <div class="hint-text">Chọn ảnh chân dung của ca sĩ (hoặc bất kỳ ai) để AI dùng làm hình mẫu.</div>
+      </div>
+      <div class="field-group" style="padding:0 0 14px;border:none;">
+        <span class="field-label">File âm thanh (bài hát)</span>
+        <input type="file" id="lipSyncAudio" accept="audio/*" style="display:block;margin:6px 0;color:var(--text-muted);font-size:12px;">
+        <div class="hint-text">Tải lên file nhạc (MP3, WAV, M4A,…).</div>
+      </div>
+      <div class="field-group" style="padding:0 0 14px;border:none;">
+        <span class="field-label">Lời bài hát</span>
+        <textarea class="field-input" id="lipSyncLyrics" placeholder="Dán lời bài hát vào đây. Mỗi câu trên một dòng hoặc đoạn." style="min-height:120px;"></textarea>
+        <div class="hint-text">AI sẽ chia lời bài hát thành từng câu, mỗi câu ứng với một cảnh video.</div>
+      </div>
+      <button class="btn btn-primary" id="btnLipSyncGenerate" style="width:100%;justify-content:center;padding:10px;">🎤 Tạo video hát nhép</button>
+      <div id="lipSyncResultArea" style="margin-top:16px;"></div>
     </div>
   </div>
 </div>
@@ -1575,11 +1601,9 @@ function renderAiResults(title, scenes) {
     area.appendChild(card);
   });
 
-  // Hàng nút bấm
   const btnRow = document.createElement('div');
   btnRow.style.cssText = 'display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;';
   
-  // Nút "Thêm tất cả vào dải phim"
   const btnApply = document.createElement('button');
   btnApply.className = 'btn btn-primary';
   btnApply.style.flex = '1';
@@ -1588,7 +1612,6 @@ function renderAiResults(title, scenes) {
   btnApply.onclick = () => applyAiScenesToTimeline(aiLastScenes);
   btnRow.appendChild(btnApply);
 
-  // ➕ Nút "🎵 Gợi ý nhạc nền" - ĐÃ ĐƯỢC THÊM VÀO ĐÂY
   const btnSuggest = document.createElement('button');
   btnSuggest.className = 'btn';
   btnSuggest.style.flex = '1';
@@ -1632,11 +1655,9 @@ async function applyAiScenesToTimeline(scenes) {
 // 🎵 Gợi ý nhạc nền từ AI
 // =====================================================================
 async function suggestMusicForScript(scenes, title) {
-  // Thu thập toàn bộ lời thoại từ các cảnh
   const scriptText = scenes.map((s, i) => `Cảnh ${i+1}: ${s.narration || ''}`).join('\n');
   const resultArea = document.getElementById('aiResultArea');
   
-  // Hiển thị trạng thái đang tải
   const loadingDiv = document.createElement('div');
   loadingDiv.className = 'ai-loading';
   loadingDiv.innerHTML = '<div class="ai-spinner"></div><div>AI đang phân tích và gợi ý nhạc nền…</div>';
@@ -1651,10 +1672,8 @@ async function suggestMusicForScript(scenes, title) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Lỗi gọi API');
 
-    // Xóa loading
     loadingDiv.remove();
 
-    // Hiển thị kết quả gợi ý
     const suggestBox = document.createElement('div');
     suggestBox.style.cssText = 'margin-top:12px;padding:14px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;';
     suggestBox.innerHTML = `
@@ -1671,6 +1690,136 @@ async function suggestMusicForScript(scenes, title) {
     resultArea.appendChild(errorBox);
   }
 }
+
+// =====================================================================
+// 🎤 AI Hát nhép - Lip Sync
+// =====================================================================
+let lipSyncImageFile = null;
+let lipSyncAudioFile = null;
+
+function openLipSyncModal() { document.getElementById('lipSyncModal').classList.remove('hidden'); }
+function closeLipSyncModal() { document.getElementById('lipSyncModal').classList.add('hidden'); }
+
+document.getElementById('btnLipSync').addEventListener('click', openLipSyncModal);
+document.getElementById('btnCloseLipSync').addEventListener('click', closeLipSyncModal);
+
+document.getElementById('lipSyncImage').addEventListener('change', (e) => {
+  lipSyncImageFile = e.target.files[0] || null;
+  if (lipSyncImageFile) toast('Đã chọn ảnh: ' + lipSyncImageFile.name);
+});
+document.getElementById('lipSyncAudio').addEventListener('change', (e) => {
+  lipSyncAudioFile = e.target.files[0] || null;
+  if (lipSyncAudioFile) toast('Đã chọn file nhạc: ' + lipSyncAudioFile.name);
+});
+
+document.getElementById('btnLipSyncGenerate').addEventListener('click', async () => {
+  const lyrics = document.getElementById('lipSyncLyrics').value.trim();
+  const resultArea = document.getElementById('lipSyncResultArea');
+  
+  if (!lipSyncImageFile) { toast('Vui lòng chọn ảnh ca sĩ.'); return; }
+  if (!lipSyncAudioFile) { toast('Vui lòng chọn file âm thanh.'); return; }
+  if (!lyrics) { toast('Vui lòng dán lời bài hát.'); return; }
+
+  resultArea.innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div><div>AI đang phân tích và tạo kịch bản hát nhép…</div></div>';
+
+  try {
+    // Đọc ảnh thành base64 để gửi cho AI
+    const imageBase64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.readAsDataURL(lipSyncImageFile);
+    });
+
+    const res = await fetch('/api/suggest-lipsync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        imageBase64, 
+        audioName: lipSyncAudioFile.name,
+        lyrics 
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Lỗi gọi API');
+
+    resultArea.innerHTML = '';
+
+    // Hiển thị tiêu đề
+    if (data.title) {
+      const h = document.createElement('div');
+      h.style.cssText = 'font-family:var(--font-display);font-size:16px;color:var(--gold);margin-bottom:12px;font-weight:600;';
+      h.textContent = data.title;
+      resultArea.appendChild(h);
+    }
+
+    // Hiển thị danh sách cảnh
+    (data.scenes || []).forEach((s, i) => {
+      const card = document.createElement('div');
+      card.className = 'ai-scene-card';
+      card.innerHTML = `
+        <div class="ai-scene-head"><span class="ai-scene-num">🎤 Câu ${i + 1}</span></div>
+        <div class="ai-scene-visual">💡 Gợi ý hình ảnh: ${s.visualIdea || '—'}</div>
+        <span class="field-label" style="margin-bottom:4px;">Phụ đề (lời hát)</span>
+        <textarea class="ai-field-mini" data-field="caption" data-idx="${i}">${s.caption || ''}</textarea>
+        <span class="field-label" style="margin-bottom:4px;">Lời thoại / hướng dẫn</span>
+        <textarea class="ai-field-mini" data-field="narration" data-idx="${i}">${s.narration || ''}</textarea>
+        <div class="ai-scene-dur">Thời lượng: <input type="number" min="2" max="30" step="0.5" data-field="durationSec" data-idx="${i}" value="${s.durationSec}"> giây</div>
+      `;
+      resultArea.appendChild(card);
+    });
+
+    // Nút thêm vào timeline
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:10px;margin-top:14px;';
+    const btnApply = document.createElement('button');
+    btnApply.className = 'btn btn-primary';
+    btnApply.style.flex = '1';
+    btnApply.style.justifyContent = 'center';
+    btnApply.textContent = '🎤 Thêm tất cả vào dải phim (hát nhép)';
+    btnApply.onclick = () => {
+      // Lưu ảnh và audio vào library
+      const imgItem = { id: uid(), type: 'image', blob: lipSyncImageFile, url: URL.createObjectURL(lipSyncImageFile), name: lipSyncImageFile.name, naturalDuration: 4 };
+      library.push(imgItem);
+      
+      // Thêm audio vào music
+      if (project.musicURL) URL.revokeObjectURL(project.musicURL);
+      project.musicBlob = lipSyncAudioFile;
+      project.musicURL = URL.createObjectURL(lipSyncAudioFile);
+      project.musicName = lipSyncAudioFile.name;
+      project.musicWaveform = null;
+      musicAudio.src = project.musicURL;
+      renderMusicBar();
+      markDirty();
+      decodeWaveformPeaks(lipSyncAudioFile, 12).then(w => { project.musicWaveform = w; renderTimelineTracks(); });
+
+      // Thêm các cảnh với ảnh đã chọn
+      data.scenes.forEach((s, i) => {
+        project.scenes.push({
+          id: uid(), type: 'image', mediaBlob: lipSyncImageFile, mediaURL: imgItem.url,
+          naturalDuration: 4, duration: clamp(s.durationSec || 4, 2, 30),
+          effect: 'kenburns', caption: s.caption || '',
+          transition: (i === 0) ? 'cut' : 'fade', transitionDur: 0.5,
+          narrationMode: 'tts', narrationBlob: null, narrationURL: null,
+          narrationDuration: 0, ttsText: s.narration || '', narrWaveform: null,
+          isPlaceholder: false,
+        });
+      });
+      
+      markDirty();
+      renderLibrary();
+      recomputeTotalDuration();
+      renderTimelineTracks();
+      renderPreviewStatic();
+      closeLipSyncModal();
+      toast('Đã thêm ' + data.scenes.length + ' cảnh hát nhép!');
+    };
+    btnRow.appendChild(btnApply);
+    resultArea.appendChild(btnRow);
+
+  } catch (e) {
+    resultArea.innerHTML = '<div class="ai-error">Không tạo được kịch bản hát nhép: ' + (e.message || 'lỗi không rõ') + '</div>';
+  }
+});
 
 // =====================================================================
 // 13. Quản lý dự án
