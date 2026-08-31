@@ -1,0 +1,9 @@
+{
+  "name": "den-chieu",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Đèn Chiếu — xưởng dựng video mini cho Trường THCS Bình Hòa",
+  "scripts": {
+    "build": "echo 'Không cần build — index.html là file tĩnh, api/ là serverless function.'"
+  }
+}
