@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* ===== GIAO DIỆN XANH DƯƠNG ĐẬM, VIỀN ĐẬM, GLASSMORPHISM ===== */
+/* ===== GIAO DIỆN SÁNG, XANH DƯƠNG ĐẬM, VIỀN ĐẬM, GLASSMORPHISM ===== */
 :root {
   --bg: #D6EAF8;
   --glass-bg: rgba(255, 255, 255, 0.65);
@@ -17,9 +17,9 @@
   --panel-solid: rgba(255, 255, 255, 0.75);
   --panel-2: rgba(255, 255, 255, 0.5);
   --panel-3: #AED6F1;
-  --gold: #1A5276;        /* xanh dương đậm */
-  --gold-soft: #2E86C1;    /* xanh sáng hơn */
-  --gold-dim: #5DADE2;     /* xanh nhạt */
+  --gold: #1A5276;
+  --gold-soft: #2E86C1;
+  --gold-dim: #5DADE2;
   --wine: #C0392B;
   --text: #0E2A3A;
   --text-muted: #2C4A5E;
@@ -150,7 +150,9 @@ input,textarea,select{font-family:var(--font-body);}
   font-family:var(--font-display);font-size:13px;font-weight:600;
   letter-spacing:1px;text-transform:uppercase;
   color:var(--gold);flex-shrink:0;
+  display:flex;justify-content:space-between;align-items:center;
 }
+.panel-header .lib-count{font-size:10px;font-family:var(--font-mono);color:var(--text-muted);}
 #libraryList{
   flex:1;overflow-y:auto;
   padding:0 12px 12px;
@@ -164,6 +166,7 @@ input,textarea,select{font-family:var(--font-body);}
   border-radius:10px;padding:6px;
   font-size:12px;color:var(--text-muted);
   transition:border .15s,box-shadow .15s;
+  position:relative;
 }
 .lib-item:hover{border-color:var(--gold-soft);box-shadow:0 2px 8px rgba(0,0,0,0.04);}
 .lib-thumb{
@@ -173,6 +176,13 @@ input,textarea,select{font-family:var(--font-body);}
 }
 .lib-thumb img,.lib-thumb video{width:100%;height:100%;object-fit:cover;}
 .lib-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+.lib-del-btn{
+  background:transparent;border:none;
+  color:var(--danger);font-size:14px;
+  padding:4px;cursor:pointer;border-radius:4px;
+  opacity:0.5;transition:opacity .15s,background .15s;
+}
+.lib-del-btn:hover{opacity:1;background:rgba(192,57,43,.1);}
 .lib-add-btn{
   margin:0 12px 12px;
   border:2px dashed var(--border);
@@ -221,7 +231,7 @@ input,textarea,select{font-family:var(--font-body);}
 }
 #previewCanvas{
   display:block;width:auto;height:auto;
-  max-width:100%;max-height:calc(100vh - 300px);
+  max-width:100%;max-height:calc(100vh - 320px);
   background:#1a1a1a;
 }
 .stage-empty-hint{
@@ -353,7 +363,7 @@ canvas.mini-wave{
 .hint-text{font-size:10.5px;color:var(--text-muted);line-height:1.5;margin-top:6px;}
 .warn-text{font-size:10.5px;color:var(--gold-soft);line-height:1.5;margin-top:6px;}
 
-/* timeline */
+/* ---------- timeline ---------- */
 #timelineWrap{
   flex-shrink:0;
   background:var(--glass-bg);
@@ -365,9 +375,19 @@ canvas.mini-wave{
   display:flex;align-items:center;justify-content:space-between;
   padding:4px 16px;
   border-bottom:2px solid var(--border-soft);
+  flex-wrap:wrap;gap:6px;
 }
-.zoom-controls{display:flex;align-items:center;gap:6px;}
-.zoom-controls .btn-icon{font-family:var(--font-mono);font-size:13px;}
+.timeline-tools{
+  display:flex;align-items:center;gap:4px;
+  flex-wrap:wrap;
+}
+.timeline-tools .btn{
+  font-size:10.5px;padding:3px 8px;min-height:28px;
+}
+.timeline-tools .btn-icon{width:28px;height:28px;padding:0;}
+.timeline-tools .btn-danger{font-size:10.5px;}
+.zoom-controls{display:flex;align-items:center;gap:4px;}
+.zoom-controls .btn-icon{font-family:var(--font-mono);font-size:13px;width:28px;height:28px;padding:0;}
 #zoomLabel{font-family:var(--font-mono);font-size:10px;color:var(--gold);min-width:34px;text-align:center;}
 #timelineScrollArea{
   overflow-x:auto;overflow-y:hidden;
@@ -458,14 +478,14 @@ canvas.mini-wave{
   z-index:2;
 }
 .scene-frame-narr{
-  position:absolute;top:3px;right:4px;
+  position:absolute;top:3px;right:22px;
   color:var(--gold);background:rgba(255,255,255,.9);
   border-radius:50%;width:14px;height:14px;
   display:flex;align-items:center;justify-content:center;
   font-size:7px;z-index:2;
 }
 .scene-frame-trans{
-  position:absolute;top:3px;right:20px;
+  position:absolute;top:3px;right:38px;
   color:var(--gold);background:rgba(255,255,255,.9);
   border-radius:50%;width:14px;height:14px;
   display:flex;align-items:center;justify-content:center;
@@ -473,14 +493,16 @@ canvas.mini-wave{
 }
 .scene-frame-del{
   position:absolute;bottom:14px;right:3px;
-  width:16px;height:16px;
+  width:18px;height:18px;
   background:rgba(255,255,255,.9);
   border-radius:50%;display:flex;
   align-items:center;justify-content:center;
   color:var(--danger);opacity:0;
-  transition:opacity .15s;font-size:9px;z-index:2;
+  transition:opacity .15s;font-size:10px;z-index:2;
+  cursor:pointer;border:none;
 }
 .scene-frame:hover .scene-frame-del{opacity:1;}
+.scene-frame-del:hover{background:rgba(192,57,43,.15);}
 .add-scene-btn{
   width:56px;flex-shrink:0;
   border:2px dashed var(--border);
@@ -697,7 +719,10 @@ canvas.mini-wave{
 
   <div id="main">
     <div id="library">
-      <div class="panel-header">Kho tư liệu</div>
+      <div class="panel-header">
+        <span>Kho tư liệu</span>
+        <span class="lib-count" id="libCount">0</span>
+      </div>
       <button class="lib-add-btn" id="btnAddMedia">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
         Thêm ảnh / video
@@ -741,8 +766,14 @@ canvas.mini-wave{
 
   <div id="timelineWrap">
     <div id="timelineToolbar">
-      <span class="field-label" style="margin:0;">Dải thời gian</span>
-      <div class="zoom-controls">
+      <div class="timeline-tools">
+        <button class="btn btn-icon btn-sm" id="btnCut" title="Cắt (Split)">✂️</button>
+        <button class="btn btn-icon btn-sm" id="btnCopy" title="Sao chép cảnh">📋</button>
+        <button class="btn btn-icon btn-sm" id="btnPaste" title="Dán cảnh">📄</button>
+        <button class="btn btn-icon btn-sm btn-danger" id="btnDeleteSelected" title="Xóa cảnh đã chọn">🗑️</button>
+        <button class="btn btn-icon btn-sm" id="btnMoveLeft" title="Di chuyển sang trái">◀</button>
+        <button class="btn btn-icon btn-sm" id="btnMoveRight" title="Di chuyển sang phải">▶</button>
+        <span style="width:1px;height:24px;background:var(--border-soft);margin:0 4px;"></span>
         <button class="btn btn-icon btn-sm" id="btnZoomOut" title="Thu nhỏ">−</button>
         <span id="zoomLabel">100%</span>
         <button class="btn btn-icon btn-sm" id="btnZoomIn" title="Phóng to">+</button>
@@ -851,7 +882,7 @@ canvas.mini-wave{
 
 <script>
 // ============================================================
-// TOÀN BỘ JAVASCRIPT – ĐẦY ĐỦ CHỨC NĂNG
+// TOÀN BỘ JAVASCRIPT – ĐẦY ĐỦ CHỨC NĂNG + CAPCUT TIMELINE TOOLS
 // ============================================================
 (function () {
 'use strict';
@@ -873,6 +904,9 @@ function toast(msg, ms = 2600) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
+
+// ---- clipboard cho copy/paste ----
+let clipboardScene = null;
 
 // ---- IndexedDB ----
 const DB_NAME = 'den-chieu-db';
@@ -1002,9 +1036,19 @@ async function addFilesToLibrary(fileList) {
   }
   renderLibrary();
 }
+function deleteLibraryItem(id) {
+  const idx = library.findIndex(item => item.id === id);
+  if (idx === -1) return;
+  URL.revokeObjectURL(library[idx].url);
+  library.splice(idx, 1);
+  renderLibrary();
+  markDirty();
+  toast('Đã xoá khỏi kho tư liệu');
+}
 function renderLibrary() {
   const list = document.getElementById('libraryList');
   list.innerHTML = '';
+  document.getElementById('libCount').textContent = library.length;
   if (library.length === 0) {
     list.innerHTML = '<div class="lib-empty">Chưa có tư liệu nào.<br>Bấm nút bên trên để thêm ảnh hoặc video.</div>';
     return;
@@ -1020,7 +1064,12 @@ function renderLibrary() {
     addBtn.className = 'btn btn-icon btn-sm'; addBtn.style.flexShrink = '0'; addBtn.title = 'Thêm vào dải phim';
     addBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>';
     addBtn.onclick = () => addSceneFromLibrary(item);
-    row.appendChild(thumb); row.appendChild(name); row.appendChild(addBtn);
+    // Nút xóa ảnh trong thư viện
+    const delBtn = document.createElement('button');
+    delBtn.className = 'lib-del-btn'; delBtn.title = 'Xoá khỏi thư viện';
+    delBtn.innerHTML = '🗑️';
+    delBtn.onclick = (e) => { e.stopPropagation(); deleteLibraryItem(item.id); };
+    row.appendChild(thumb); row.appendChild(name); row.appendChild(addBtn); row.appendChild(delBtn);
     row.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/lib-id', item.id));
     list.appendChild(row);
   });
@@ -1171,7 +1220,11 @@ function renderTimelineTracks() {
     thumbEl.className = 'scene-frame-thumb';
     const num = document.createElement('div'); num.className = 'scene-frame-num'; num.textContent = '#' + (i + 1);
     const info = document.createElement('div'); info.className = 'scene-frame-info'; info.innerHTML = `<span>${scene.duration.toFixed(1)}s</span>`;
-    const del = document.createElement('div'); del.className = 'scene-frame-del'; del.innerHTML = '✕';
+    // Nút xóa cảnh (luôn hiển thị, không cần hover)
+    const del = document.createElement('button');
+    del.className = 'scene-frame-del';
+    del.innerHTML = '✕';
+    del.title = 'Xoá cảnh này';
     del.onclick = (e) => { e.stopPropagation(); removeScene(scene.id); };
     frame.appendChild(thumbEl); frame.appendChild(num); frame.appendChild(info); frame.appendChild(del);
     if (scene.narrationMode === 'record' || scene.narrationMode === 'upload') {
@@ -1252,6 +1305,86 @@ function onTimelineScrubClick(e) {
   const px = getPxPerSec();
   const t = clamp(x / px, 0, player.totalDuration);
   seekTo(t);
+}
+
+// ---- CapCut timeline functions ----
+function getSelectedIndex() {
+  if (!selectedSceneId) return -1;
+  return project.scenes.findIndex(s => s.id === selectedSceneId);
+}
+
+function splitScene() {
+  const idx = getSelectedIndex();
+  if (idx === -1) { toast('Hãy chọn một cảnh để cắt'); return; }
+  const scene = project.scenes[idx];
+  if (scene.duration < 1.5) { toast('Cảnh quá ngắn, không thể cắt'); return; }
+  // Tạo bản sao của cảnh, giữ nguyên media, giảm thời lượng
+  const half = scene.duration / 2;
+  const newScene = {
+    ...JSON.parse(JSON.stringify(scene)),
+    id: uid(),
+    duration: half,
+    mediaURL: scene.mediaURL, // dùng lại blob
+    narrationURL: scene.narrationURL,
+    mediaBlob: scene.mediaBlob,
+    narrationBlob: scene.narrationBlob,
+  };
+  scene.duration = half;
+  project.scenes.splice(idx + 1, 0, newScene);
+  markDirty();
+  recomputeTotalDuration();
+  renderTimelineTracks();
+  selectScene(newScene.id);
+  toast('Đã cắt cảnh thành 2');
+}
+
+function copyScene() {
+  const idx = getSelectedIndex();
+  if (idx === -1) { toast('Hãy chọn một cảnh để sao chép'); return; }
+  const scene = project.scenes[idx];
+  clipboardScene = { ...JSON.parse(JSON.stringify(scene)), id: uid() };
+  toast('Đã sao chép cảnh #' + (idx + 1));
+}
+
+function pasteScene() {
+  if (!clipboardScene) { toast('Chưa có cảnh nào trong bộ nhớ tạm'); return; }
+  const idx = getSelectedIndex();
+  const pasteIdx = idx === -1 ? project.scenes.length : idx + 1;
+  const newScene = { ...clipboardScene, id: uid() };
+  // Khôi phục blob URL
+  if (newScene.mediaBlob) newScene.mediaURL = URL.createObjectURL(newScene.mediaBlob);
+  if (newScene.narrationBlob) newScene.narrationURL = URL.createObjectURL(newScene.narrationBlob);
+  project.scenes.splice(pasteIdx, 0, newScene);
+  markDirty();
+  recomputeTotalDuration();
+  renderTimelineTracks();
+  selectScene(newScene.id);
+  toast('Đã dán cảnh');
+}
+
+function deleteSelectedScene() {
+  if (!selectedSceneId) { toast('Hãy chọn một cảnh để xoá'); return; }
+  removeScene(selectedSceneId);
+}
+
+function moveSceneLeft() {
+  const idx = getSelectedIndex();
+  if (idx <= 0) { toast('Không thể di chuyển sang trái'); return; }
+  const scene = project.scenes.splice(idx, 1)[0];
+  project.scenes.splice(idx - 1, 0, scene);
+  markDirty();
+  renderTimelineTracks();
+  selectScene(scene.id);
+}
+
+function moveSceneRight() {
+  const idx = getSelectedIndex();
+  if (idx === -1 || idx >= project.scenes.length - 1) { toast('Không thể di chuyển sang phải'); return; }
+  const scene = project.scenes.splice(idx, 1)[0];
+  project.scenes.splice(idx + 1, 0, scene);
+  markDirty();
+  renderTimelineTracks();
+  selectScene(scene.id);
 }
 
 // ---- inspector ----
@@ -1776,9 +1909,19 @@ document.getElementById('btnPlay').addEventListener('click', () => {
 });
 document.getElementById('timelineRuler').addEventListener('click', onTimelineScrubClick);
 document.getElementById('timelineAudioTrack').addEventListener('click', onTimelineScrubClick);
+
+// ---- zoom controls ----
 document.getElementById('btnZoomIn').addEventListener('click', () => setTimelineZoom(timelineZoom * 1.4));
 document.getElementById('btnZoomOut').addEventListener('click', () => setTimelineZoom(timelineZoom / 1.4));
 document.getElementById('btnZoomFit').addEventListener('click', () => setTimelineZoom(1));
+
+// ---- CapCut tools ----
+document.getElementById('btnCut').addEventListener('click', splitScene);
+document.getElementById('btnCopy').addEventListener('click', copyScene);
+document.getElementById('btnPaste').addEventListener('click', pasteScene);
+document.getElementById('btnDeleteSelected').addEventListener('click', deleteSelectedScene);
+document.getElementById('btnMoveLeft').addEventListener('click', moveSceneLeft);
+document.getElementById('btnMoveRight').addEventListener('click', moveSceneRight);
 
 // ---- export video ----
 let mediaRecorder = null, recordedChunks = [];
@@ -1875,7 +2018,7 @@ document.getElementById('aspectControl').querySelectorAll('button').forEach(btn 
   btn.addEventListener('click', () => { applyAspectRatio(btn.dataset.v); markDirty(); });
 });
 
-// ---- AI script ----
+// ---- AI script (giữ nguyên) ----
 let aiPurpose = 'gdcd';
 let aiLastScenes = [];
 function openAiScriptModal() { document.getElementById('aiScriptModal').classList.remove('hidden'); }
