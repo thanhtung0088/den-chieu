@@ -4,9 +4,6 @@
   "private": true,
   "type": "module",
   "description": "Đèn Chiếu — xưởng dựng video mini cho Trường THCS Bình Hòa",
-  "dependencies": {
-    "@vercel/blob": "^2.8.0"
-  },
   "scripts": {
     "build": "echo 'Không cần build — index.html là file tĩnh, api/ là serverless function.'"
   }
