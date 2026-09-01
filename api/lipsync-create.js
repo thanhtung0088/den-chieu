@@ -1,6 +1,7 @@
 // api/lipsync-create.js
-// Nhận ảnh ca sĩ + audio bài hát (dạng base64 data URI) từ trình duyệt,
-// gửi lên D-ID để tạo video "hát nhép" thật (khớp môi theo audio).
+// Nhận LINK (URL) ảnh ca sĩ + LINK audio bài hát (đã upload sẵn lên Vercel Blob)
+// -> gửi cho D-ID để tạo video "hát nhép" thật (khớp môi theo audio).
+// Dùng URL thay vì base64 để tránh lỗi 413 (Vercel giới hạn body function ~4.5MB).
 // D-ID xử lý bất đồng bộ -> hàm này chỉ TẠO job, không đợi xong.
 // Trình duyệt sẽ gọi /api/lipsync-status?id=... để hỏi kết quả (xem file kia).
 //
@@ -17,14 +18,12 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Chưa cấu hình DID_API_KEY trên Vercel' });
   }
 
-  const { imageBase64, audioBase64 } = req.body || {};
-  if (!imageBase64 || !audioBase64) {
-    return res.status(400).json({ error: 'Thiếu ảnh hoặc audio' });
+  const { imageUrl, audioUrl } = req.body || {};
+  if (!imageUrl || !audioUrl) {
+    return res.status(400).json({ error: 'Thiếu link ảnh hoặc link audio' });
   }
 
   try {
-    // D-ID chấp nhận data URI trực tiếp cho ảnh nguồn và audio nếu dung lượng không quá lớn.
-    // Giới hạn tham khảo: ảnh nên < 5MB, audio nên < ~15MB (bài hát dài/nặng có thể lỗi -> nên nén trước khi gửi).
     const authHeader = 'Basic ' + Buffer.from(apiKey + ':').toString('base64');
 
     const createRes = await fetch('https://api.d-id.com/talks', {
@@ -34,10 +33,10 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        source_url: imageBase64, // data:image/...;base64,...
+        source_url: imageUrl,
         script: {
           type: 'audio',
-          audio_url: audioBase64, // data:audio/...;base64,...
+          audio_url: audioUrl,
         },
         config: {
           fluent: true,
@@ -50,7 +49,7 @@ export default async function handler(req, res) {
 
     if (!createRes.ok) {
       return res.status(createRes.status).json({
-        error: data.description || data.message || 'D-ID từ chối yêu cầu (có thể do ảnh/audio quá nặng hoặc không có khuôn mặt rõ trong ảnh)',
+        error: data.description || data.message || 'D-ID từ chối yêu cầu (có thể ảnh không có khuôn mặt rõ, hoặc link không truy cập được)',
       });
     }
 
