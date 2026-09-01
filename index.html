@@ -2259,22 +2259,35 @@ function updateLipSyncRangeLabel() {
   }
 }
 
-// Cắt 1 đoạn từ file audio gốc và trả về Blob .wav — dùng Web Audio API, không cần thư viện ngoài.
+// Cắt 1 đoạn từ file audio gốc, ép về mono + giảm sample rate để file nhẹ,
+// đủ gửi qua server (giới hạn 4.5MB) mà không cần Vercel Blob (đang lỗi CORS phía Vercel).
+const LIPSYNC_TARGET_SAMPLE_RATE = 16000; // đủ tốt cho khớp khẩu hình, nhẹ hơn nhiều so với 44.1kHz gốc
 async function trimAudioToBlob(file, startSec, durSec) {
   const arrayBuf = await file.arrayBuffer();
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
-  const sampleRate = audioBuffer.sampleRate;
-  const numChannels = audioBuffer.numberOfChannels;
-  const startSample = Math.floor(startSec * sampleRate);
-  const durSamples = Math.max(1, Math.min(Math.floor(durSec * sampleRate), audioBuffer.length - startSample));
-  const trimmedBuffer = audioCtx.createBuffer(numChannels, durSamples, sampleRate);
-  for (let ch = 0; ch < numChannels; ch++) {
-    const channelData = audioBuffer.getChannelData(ch).subarray(startSample, startSample + durSamples);
-    trimmedBuffer.copyToChannel(channelData, ch);
+  const decodeCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const audioBuffer = await decodeCtx.decodeAudioData(arrayBuf);
+  decodeCtx.close();
+
+  const srcSampleRate = audioBuffer.sampleRate;
+  const startSample = Math.floor(startSec * srcSampleRate);
+  const durSamples = Math.max(1, Math.min(Math.floor(durSec * srcSampleRate), audioBuffer.length - startSample));
+
+  // Render đoạn đã cắt qua OfflineAudioContext để đồng thời hạ sample rate + gộp về 1 kênh (mono)
+  const outSampleRate = Math.min(LIPSYNC_TARGET_SAMPLE_RATE, srcSampleRate);
+  const outLength = Math.ceil(durSamples * outSampleRate / srcSampleRate);
+  const offlineCtx = new OfflineAudioContext(1, outLength, outSampleRate);
+
+  const segmentBuffer = offlineCtx.createBuffer(audioBuffer.numberOfChannels, durSamples, srcSampleRate);
+  for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
+    segmentBuffer.copyToChannel(audioBuffer.getChannelData(ch).subarray(startSample, startSample + durSamples), ch);
   }
-  audioCtx.close();
-  return audioBufferToWavBlob(trimmedBuffer);
+  const source = offlineCtx.createBufferSource();
+  source.buffer = segmentBuffer;
+  const merger = offlineCtx.createChannelMerger(1);
+  source.connect(offlineCtx.destination); // stereo->mono tự động vì destination context chỉ có 1 kênh
+  source.start(0);
+  const rendered = await offlineCtx.startRendering();
+  return audioBufferToWavBlob(rendered);
 }
 function audioBufferToWavBlob(buffer) {
   const numChannels = buffer.numberOfChannels;
@@ -2303,44 +2316,74 @@ function audioBufferToWavBlob(buffer) {
   return new Blob([arrBuf], { type: 'audio/wav' });
 }
 
+// Nén ảnh về kích thước vừa phải (cạnh dài tối đa 1024px, JPEG) để giữ dung lượng nhẹ.
+async function compressImageToBlob(file, maxDim, quality) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+  const img = await new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = dataUrl;
+  });
+  let { width, height } = img;
+  if (width > maxDim || height > maxDim) {
+    const scale = maxDim / Math.max(width, height);
+    width = Math.round(width * scale);
+    height = Math.round(height * scale);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+}
+
+function blobToDataURL(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+}
+
 document.getElementById('btnLipSyncGenerate').addEventListener('click', async () => {
   const resultArea = document.getElementById('lipSyncResultArea');
   if (!lipSyncImageFile) { toast('Vui lòng chọn ảnh ca sĩ.'); return; }
   if (!lipSyncAudioFile) { toast('Vui lòng chọn file âm thanh.'); return; }
 
-  let audioToUpload = lipSyncAudioFile;
-  let audioNameToUpload = lipSyncAudioFile.name;
-
-  if (lipSyncDurPreset !== 'full' && lipSyncTotalDuration > lipSyncDurPreset) {
-    resultArea.innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div><div>Đang cắt đoạn audio…</div></div>';
-    try {
-      audioToUpload = await trimAudioToBlob(lipSyncAudioFile, lipSyncStartSec, lipSyncDurPreset);
-      audioNameToUpload = 'trimmed-' + lipSyncDurPreset + 's.wav';
-    } catch (err) {
-      resultArea.innerHTML = '<div class="ai-error">Không cắt được audio: ' + (err.message || 'lỗi không rõ') + '</div>';
-      return;
-    }
-  }
-
-  resultArea.innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div><div>Đang tải ảnh và audio lên…</div></div>';
+  resultArea.innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div><div>Đang xử lý ảnh và audio…</div></div>';
 
   try {
-    // Tải file lên Vercel Blob trực tiếp từ trình duyệt (không qua body của
-    // serverless function) để tránh lỗi 413 khi audio bài hát nặng.
-    const { upload } = await import('https://esm.sh/@vercel/blob@2.8.0/client');
+    // Luôn cắt/nén audio (mono, giảm sample rate) để nhẹ đủ gửi qua server.
+    // Nếu chọn "Toàn bộ" nhưng bài hát quá dài, giới hạn an toàn tối đa ~3 phút.
+    const SAFE_MAX_SEC = 180;
+    let durSec = lipSyncDurPreset === 'full' ? Math.min(lipSyncTotalDuration, SAFE_MAX_SEC) : Math.min(lipSyncDurPreset, SAFE_MAX_SEC);
+    let startSec = lipSyncDurPreset === 'full' ? 0 : lipSyncStartSec;
+    if (lipSyncDurPreset === 'full' && lipSyncTotalDuration > SAFE_MAX_SEC) {
+      toast('Bài hát dài hơn 3 phút, tự động dùng 3 phút đầu để tránh lỗi.');
+    }
 
-    const [imageBlob, audioBlob] = await Promise.all([
-      upload(lipSyncImageFile.name, lipSyncImageFile, { access: 'public', handleUploadUrl: '/api/blob-upload-token' }),
-      upload(audioNameToUpload, audioToUpload, { access: 'public', handleUploadUrl: '/api/blob-upload-token' }),
+    const audioBlob = await trimAudioToBlob(lipSyncAudioFile, startSec, durSec);
+    const imageBlob = await compressImageToBlob(lipSyncImageFile, 1024, 0.85);
+
+    const [imageBase64, audioBase64] = await Promise.all([
+      blobToDataURL(imageBlob),
+      blobToDataURL(audioBlob),
     ]);
 
     resultArea.innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div><div>Đang gửi lên AI dựng video hát nhép… (có thể mất 1–3 phút)</div></div>';
 
-    // Bước 1: tạo job trên D-ID (gửi link, không gửi file trực tiếp)
+    // Bước 1: tạo job trên D-ID (gửi trực tiếp qua server, không dùng Vercel Blob
+    // vì tính năng client-upload của Vercel Blob đang lỗi CORS phía nền tảng)
     const createRes = await fetch('/api/lipsync-create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageUrl: imageBlob.url, audioUrl: audioBlob.url }),
+      body: JSON.stringify({ imageBase64, audioBase64 }),
     });
     const createData = await createRes.json();
     if (!createRes.ok) throw new Error(createData.error || 'Không tạo được job');
