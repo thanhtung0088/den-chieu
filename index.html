@@ -2327,7 +2327,7 @@ document.getElementById('btnLipSyncGenerate').addEventListener('click', async ()
   try {
     // Tải file lên Vercel Blob trực tiếp từ trình duyệt (không qua body của
     // serverless function) để tránh lỗi 413 khi audio bài hát nặng.
-    const { upload } = await import('https://esm.sh/@vercel/blob@0.27.1/client');
+    const { upload } = await import('https://esm.sh/@vercel/blob@2.8.0/client');
 
     const [imageBlob, audioBlob] = await Promise.all([
       upload(lipSyncImageFile.name, lipSyncImageFile, { access: 'public', handleUploadUrl: '/api/blob-upload-token' }),
