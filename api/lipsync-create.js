@@ -1,7 +1,13 @@
 // api/lipsync-create.js
-// Nhận LINK (URL) ảnh ca sĩ + LINK audio bài hát (đã upload sẵn lên Vercel Blob)
-// -> gửi cho D-ID để tạo video "hát nhép" thật (khớp môi theo audio).
-// Dùng URL thay vì base64 để tránh lỗi 413 (Vercel giới hạn body function ~4.5MB).
+// Nhận ảnh ca sĩ + audio bài hát (dạng base64 data URI, đã được nén nhỏ ở
+// trình duyệt trước khi gửi) -> gửi cho D-ID để tạo video "hát nhép" thật.
+//
+// LƯU Ý: không dùng Vercel Blob nữa vì tính năng client-upload của Vercel Blob
+// đang có lỗi CORS ở phía nền tảng (Vercel xác nhận, chưa có thời gian sửa).
+// Gửi thẳng base64 qua serverless function này; trình duyệt đã tự nén audio
+// (mono, giảm sample rate) + ảnh (resize, nén JPEG) trước để không vượt giới
+// hạn 4.5MB của Vercel Functions.
+//
 // D-ID xử lý bất đồng bộ -> hàm này chỉ TẠO job, không đợi xong.
 // Trình duyệt sẽ gọi /api/lipsync-status?id=... để hỏi kết quả (xem file kia).
 //
@@ -18,9 +24,9 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Chưa cấu hình DID_API_KEY trên Vercel' });
   }
 
-  const { imageUrl, audioUrl } = req.body || {};
-  if (!imageUrl || !audioUrl) {
-    return res.status(400).json({ error: 'Thiếu link ảnh hoặc link audio' });
+  const { imageBase64, audioBase64 } = req.body || {};
+  if (!imageBase64 || !audioBase64) {
+    return res.status(400).json({ error: 'Thiếu ảnh hoặc audio' });
   }
 
   try {
@@ -33,10 +39,10 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        source_url: imageUrl,
+        source_url: imageBase64, // data:image/jpeg;base64,...
         script: {
           type: 'audio',
-          audio_url: audioUrl,
+          audio_url: audioBase64, // data:audio/wav;base64,...
         },
         config: {
           fluent: true,
@@ -48,14 +54,4 @@ export default async function handler(req, res) {
     const data = await createRes.json();
 
     if (!createRes.ok) {
-      return res.status(createRes.status).json({
-        error: data.description || data.message || 'D-ID từ chối yêu cầu (có thể ảnh không có khuôn mặt rõ, hoặc link không truy cập được)',
-      });
-    }
-
-    return res.status(200).json({ id: data.id });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: 'Lỗi khi gọi D-ID: ' + e.message });
-  }
-}
+      return res.status(createRes.status).js
