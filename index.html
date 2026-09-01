@@ -860,6 +860,25 @@ canvas.mini-wave{
         <input type="file" id="lipSyncAudio" accept="audio/*" style="display:block;margin:4px 0;color:var(--text-muted);font-size:11.5px;">
         <div class="hint-text">Tải lên file nhạc (MP3, WAV, M4A,…). Nên nén gọn (mp3 ~128kbps) nếu file quá nặng.</div>
       </div>
+      <div class="field-group" id="lipSyncTrimGroup" style="padding:0 0 14px;border:none;display:none;">
+        <span class="field-label">Cắt đoạn để dựng nhanh hơn</span>
+        <div class="hint-text" style="margin:0 0 8px;">Bài hát dài: <span id="lipSyncTotalDurLabel">--:--</span> — AI xử lý càng nhanh nếu đoạn càng ngắn.</div>
+        <div class="segmented wrap" id="lipSyncDurPreset">
+          <button data-v="15">15 giây</button>
+          <button data-v="30" class="active">30 giây</button>
+          <button data-v="60">1 phút</button>
+          <button data-v="120">2 phút</button>
+          <button data-v="180">3 phút</button>
+          <button data-v="300">5 phút</button>
+          <button data-v="full">Toàn bộ</button>
+        </div>
+        <div class="field-row" id="lipSyncStartRow" style="margin-top:10px;">
+          <span class="field-label" style="margin:0;white-space:nowrap;">Bắt đầu từ</span>
+          <input type="range" id="lipSyncStartSlider" min="0" max="0" step="1" value="0">
+          <span class="range-value" id="lipSyncStartLabel">00:00</span>
+        </div>
+        <div class="hint-text" id="lipSyncRangeLabel" style="margin-top:4px;"></div>
+      </div>
       <div class="field-group" style="padding:0 0 14px;border:none;">
         <span class="field-label">Lời bài hát (tuỳ chọn, để tham khảo/làm phụ đề sau)</span>
         <textarea class="field-input" id="lipSyncLyrics" placeholder="Dán lời bài hát vào đây (không bắt buộc)." style="min-height:100px;"></textarea>
@@ -2165,17 +2184,143 @@ async function suggestMusicForScript(scenes, title) {
 // ---- Lip Sync (D-ID: ảnh + audio -> video khớp môi thật) ----
 let lipSyncImageFile = null;
 let lipSyncAudioFile = null;
-function openLipSyncModal() { document.getElementById('lipSyncModal').classList.remove('hidden'); }
+let lipSyncTotalDuration = 0; // tổng thời lượng file audio gốc (giây)
+let lipSyncDurPreset = 30;    // 'full' hoặc số giây
+let lipSyncStartSec = 0;      // điểm bắt đầu cắt (giây)
+
+function openLipSyncModal() {
+  document.getElementById('lipSyncModal').classList.remove('hidden');
+  document.getElementById('lipSyncTrimGroup').style.display = 'none';
+  document.getElementById('lipSyncResultArea').innerHTML = '';
+}
 function closeLipSyncModal() { document.getElementById('lipSyncModal').classList.add('hidden'); }
 document.getElementById('btnLipSync').addEventListener('click', openLipSyncModal);
 document.getElementById('btnCloseLipSync').addEventListener('click', closeLipSyncModal);
 document.getElementById('lipSyncImage').addEventListener('change', (e) => { lipSyncImageFile = e.target.files[0] || null; if (lipSyncImageFile) toast('Đã chọn ảnh: ' + lipSyncImageFile.name); });
-document.getElementById('lipSyncAudio').addEventListener('change', (e) => { lipSyncAudioFile = e.target.files[0] || null; if (lipSyncAudioFile) toast('Đã chọn file nhạc: ' + lipSyncAudioFile.name); });
+
+document.getElementById('lipSyncAudio').addEventListener('change', async (e) => {
+  lipSyncAudioFile = e.target.files[0] || null;
+  if (!lipSyncAudioFile) return;
+  toast('Đã chọn file nhạc: ' + lipSyncAudioFile.name);
+  document.getElementById('lipSyncTrimGroup').style.display = 'none';
+  try {
+    const buf = await lipSyncAudioFile.arrayBuffer();
+    const tmpCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const decoded = await tmpCtx.decodeAudioData(buf);
+    lipSyncTotalDuration = decoded.duration;
+    tmpCtx.close();
+    document.getElementById('lipSyncTotalDurLabel').textContent = fmtTime(lipSyncTotalDuration);
+    document.getElementById('lipSyncTrimGroup').style.display = 'block';
+    lipSyncStartSec = 0;
+    updateLipSyncStartSlider();
+    updateLipSyncRangeLabel();
+  } catch (err) {
+    console.warn('Không đọc được thời lượng audio', err);
+    document.getElementById('lipSyncTrimGroup').style.display = 'none';
+  }
+});
+
+document.getElementById('lipSyncDurPreset').querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#lipSyncDurPreset button').forEach(b => b.classList.toggle('active', b === btn));
+    lipSyncDurPreset = btn.dataset.v === 'full' ? 'full' : parseInt(btn.dataset.v, 10);
+    document.getElementById('lipSyncStartRow').style.display = lipSyncDurPreset === 'full' ? 'none' : 'flex';
+    updateLipSyncStartSlider();
+    updateLipSyncRangeLabel();
+  });
+});
+
+document.getElementById('lipSyncStartSlider').addEventListener('input', (e) => {
+  lipSyncStartSec = parseFloat(e.target.value);
+  updateLipSyncRangeLabel();
+});
+
+function updateLipSyncStartSlider() {
+  const slider = document.getElementById('lipSyncStartSlider');
+  if (lipSyncDurPreset === 'full') {
+    slider.max = 0; slider.value = 0; lipSyncStartSec = 0;
+    document.getElementById('lipSyncStartRow').style.display = 'none';
+    return;
+  }
+  const maxStart = Math.max(0, lipSyncTotalDuration - lipSyncDurPreset);
+  slider.max = maxStart;
+  if (lipSyncStartSec > maxStart) lipSyncStartSec = maxStart;
+  slider.value = lipSyncStartSec;
+  document.getElementById('lipSyncStartRow').style.display = 'flex';
+}
+function updateLipSyncRangeLabel() {
+  document.getElementById('lipSyncStartLabel').textContent = fmtTime(lipSyncStartSec);
+  const rangeEl = document.getElementById('lipSyncRangeLabel');
+  if (lipSyncDurPreset === 'full') {
+    rangeEl.textContent = 'Sẽ dùng toàn bộ bài hát (' + fmtTime(lipSyncTotalDuration) + ').';
+  } else {
+    const end = Math.min(lipSyncTotalDuration, lipSyncStartSec + lipSyncDurPreset);
+    rangeEl.textContent = 'Sẽ cắt đoạn từ ' + fmtTime(lipSyncStartSec) + ' đến ' + fmtTime(end) + ' (' + (end - lipSyncStartSec).toFixed(0) + ' giây).';
+  }
+}
+
+// Cắt 1 đoạn từ file audio gốc và trả về Blob .wav — dùng Web Audio API, không cần thư viện ngoài.
+async function trimAudioToBlob(file, startSec, durSec) {
+  const arrayBuf = await file.arrayBuffer();
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
+  const sampleRate = audioBuffer.sampleRate;
+  const numChannels = audioBuffer.numberOfChannels;
+  const startSample = Math.floor(startSec * sampleRate);
+  const durSamples = Math.max(1, Math.min(Math.floor(durSec * sampleRate), audioBuffer.length - startSample));
+  const trimmedBuffer = audioCtx.createBuffer(numChannels, durSamples, sampleRate);
+  for (let ch = 0; ch < numChannels; ch++) {
+    const channelData = audioBuffer.getChannelData(ch).subarray(startSample, startSample + durSamples);
+    trimmedBuffer.copyToChannel(channelData, ch);
+  }
+  audioCtx.close();
+  return audioBufferToWavBlob(trimmedBuffer);
+}
+function audioBufferToWavBlob(buffer) {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const bitDepth = 16;
+  const numFrames = buffer.length;
+  const blockAlign = numChannels * (bitDepth / 8);
+  const dataSize = numFrames * blockAlign;
+  const arrBuf = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(arrBuf);
+  const writeStr = (offset, str) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
+  writeStr(0, 'RIFF'); view.setUint32(4, 36 + dataSize, true); writeStr(8, 'WAVE');
+  writeStr(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true); view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true); view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true); writeStr(36, 'data'); view.setUint32(40, dataSize, true);
+  const channels = []; for (let ch = 0; ch < numChannels; ch++) channels.push(buffer.getChannelData(ch));
+  let offset = 44;
+  for (let i = 0; i < numFrames; i++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      let s = Math.max(-1, Math.min(1, channels[ch][i]));
+      s = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      view.setInt16(offset, s, true); offset += 2;
+    }
+  }
+  return new Blob([arrBuf], { type: 'audio/wav' });
+}
 
 document.getElementById('btnLipSyncGenerate').addEventListener('click', async () => {
   const resultArea = document.getElementById('lipSyncResultArea');
   if (!lipSyncImageFile) { toast('Vui lòng chọn ảnh ca sĩ.'); return; }
   if (!lipSyncAudioFile) { toast('Vui lòng chọn file âm thanh.'); return; }
+
+  let audioToUpload = lipSyncAudioFile;
+  let audioNameToUpload = lipSyncAudioFile.name;
+
+  if (lipSyncDurPreset !== 'full' && lipSyncTotalDuration > lipSyncDurPreset) {
+    resultArea.innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div><div>Đang cắt đoạn audio…</div></div>';
+    try {
+      audioToUpload = await trimAudioToBlob(lipSyncAudioFile, lipSyncStartSec, lipSyncDurPreset);
+      audioNameToUpload = 'trimmed-' + lipSyncDurPreset + 's.wav';
+    } catch (err) {
+      resultArea.innerHTML = '<div class="ai-error">Không cắt được audio: ' + (err.message || 'lỗi không rõ') + '</div>';
+      return;
+    }
+  }
 
   resultArea.innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div><div>Đang tải ảnh và audio lên…</div></div>';
 
@@ -2186,7 +2331,7 @@ document.getElementById('btnLipSyncGenerate').addEventListener('click', async ()
 
     const [imageBlob, audioBlob] = await Promise.all([
       upload(lipSyncImageFile.name, lipSyncImageFile, { access: 'public', handleUploadUrl: '/api/blob-upload-token' }),
-      upload(lipSyncAudioFile.name, lipSyncAudioFile, { access: 'public', handleUploadUrl: '/api/blob-upload-token' }),
+      upload(audioNameToUpload, audioToUpload, { access: 'public', handleUploadUrl: '/api/blob-upload-token' }),
     ]);
 
     resultArea.innerHTML = '<div class="ai-loading"><div class="ai-spinner"></div><div>Đang gửi lên AI dựng video hát nhép… (có thể mất 1–3 phút)</div></div>';
