@@ -3,9 +3,10 @@
 // D-ID đã dựng xong video hát nhép chưa.
 // status trả về: "created" | "started" (đang xử lý) hoặc "done" (xong, có result_url) | "error"
 //
-// LƯU Ý: API key của D-ID đã có sẵn dấu hai chấm bên trong (dạng
-// API_USER:API_PASSWORD) -> chỉ encode base64 nguyên key, KHÔNG được nối
-// thêm ':' vào cuối (khác với kiểu OpenAI/Anthropic).
+// LƯU Ý QUAN TRỌNG: theo tài liệu chính thức của D-ID (docs.d-id.com/docs/api-keys),
+// header đúng là 'Authorization: Basic <YOUR KEY>' - dán THẲNG API key gốc
+// sau chữ 'Basic ', KHÔNG encode base64 (khác chuẩn HTTP Basic Auth thông thường,
+// khác cả kiểu OpenAI/Anthropic).
 
 export default async function handler(req, res) {
   const apiKey = process.env.DID_API_KEY;
@@ -19,7 +20,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const authHeader = 'Basic ' + Buffer.from(apiKey).toString('base64');
+    const authHeader = 'Basic ' + apiKey;
     const r = await fetch('https://api.d-id.com/talks/' + id, {
       headers: { 'Authorization': authHeader },
     });

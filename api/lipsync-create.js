@@ -14,9 +14,10 @@
 // Cần thêm biến môi trường DID_API_KEY trên Vercel (Project Settings -> Environment Variables)
 // Lấy API key tại: https://studio.d-id.com -> Account Settings -> API Keys
 //
-// LƯU Ý: API key của D-ID đã có sẵn dấu hai chấm bên trong (dạng
-// API_USER:API_PASSWORD) -> chỉ encode base64 nguyên key, KHÔNG được nối
-// thêm ':' vào cuối (khác với kiểu OpenAI/Anthropic).
+// LƯU Ý QUAN TRỌNG: theo tài liệu chính thức của D-ID (docs.d-id.com/docs/api-keys),
+// header đúng là 'Authorization: Basic <YOUR KEY>' - dán THẲNG API key gốc
+// sau chữ 'Basic ', KHÔNG encode base64 (khác chuẩn HTTP Basic Auth thông thường,
+// khác cả kiểu OpenAI/Anthropic).
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -34,7 +35,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const authHeader = 'Basic ' + Buffer.from(apiKey).toString('base64');
+    const authHeader = 'Basic ' + apiKey;
 
     const createRes = await fetch('https://api.d-id.com/talks', {
       method: 'POST',
