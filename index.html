@@ -104,12 +104,7 @@ input,textarea,select{font-family:var(--font-body);}
 .rail-btn.active{background:rgba(26,82,118,0.1);color:var(--gold);font-weight:600;}
 
 #leftPanel{width:224px;flex-shrink:0;background:var(--glass-bg);backdrop-filter:blur(8px);border-right:2px solid var(--border-strong);display:flex;flex-direction:column;overflow:hidden;}
-
-/* dải công cụ dọc bên phải (Văn bản/Nhãn dán/Hiệu ứng/Chuyển tiếp/Chú thích/Bộ lọc/Điều chỉnh/Ảnh đại diện AI) */
-#toolRail{width:62px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;background:var(--glass-bg);backdrop-filter:blur(8px);border-left:2px solid var(--border-strong);overflow-y:auto;}
-#toolRail .rail-btn{width:54px;padding:8px 2px;font-size:8.8px;line-height:1.2;}
-#toolRail .rail-icon{font-size:16px;}
-@media (max-width:1100px){ #toolRail{display:none;} }
+.rail-sep{width:36px;height:2px;background:var(--border-soft);margin:4px 0 6px;flex-shrink:0;}
 .left-panel-content{display:flex;flex-direction:column;height:100%;overflow:hidden;}
 .panel-header{padding:14px 16px 8px;font-family:var(--font-display);font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gold);flex-shrink:0;display:flex;justify-content:space-between;align-items:center;}
 .panel-header .lib-count{font-size:10px;font-family:var(--font-mono);color:var(--text-muted);}
@@ -204,7 +199,8 @@ input[type=color]{width:32px;height:28px;border-radius:6px;border:2px solid var(
 .timeline-tools .btn-icon{width:30px;height:30px;padding:0;font-size:13px;}
 .zoom-controls{display:flex;align-items:center;gap:4px;}
 #zoomLabel{font-family:var(--font-mono);font-size:10px;color:var(--gold);min-width:34px;text-align:center;}
-#timelineScrollArea{overflow-x:auto;overflow-y:auto;position:relative;padding:0 16px;max-height:190px;}
+#timelineScrollArea{overflow-x:auto;overflow-y:auto;position:relative;padding:0 16px;max-height:190px;transition:max-height .2s;}
+.timeline-expanded #timelineScrollArea{max-height:380px;}
 #timelineScrollArea::-webkit-scrollbar{height:12px;width:6px;}
 #timelineScrollArea::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:6px;border:2px solid transparent;background-clip:content-box;}
 #timelineScrollArea::-webkit-scrollbar-thumb:hover{background:var(--gold-soft);background-clip:content-box;}
@@ -240,6 +236,11 @@ input[type=color]{width:32px;height:28px;border-radius:6px;border:2px solid var(
 .scene-frame-del{position:absolute;bottom:14px;right:3px;width:18px;height:18px;background:rgba(255,255,255,.9);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--danger);opacity:0;transition:opacity .15s;font-size:10px;z-index:2;cursor:pointer;border:none;}
 .scene-frame:hover .scene-frame-del{opacity:1;}
 .scene-frame-del:hover{background:rgba(192,57,43,.15);}
+.scene-frame-lock,.scene-frame-mute-btn{position:absolute;bottom:14px;width:16px;height:16px;background:rgba(255,255,255,.85);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;z-index:2;cursor:pointer;border:none;padding:0;}
+.scene-frame-lock{left:3px;}
+.scene-frame-mute-btn{left:21px;}
+.scene-frame.locked{opacity:.75;}
+.scene-frame.locked .scene-frame-del{opacity:.3;cursor:not-allowed;}
 .scene-trim-handle{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:3;background:rgba(26,82,118,0);transition:background .12s;}
 .scene-trim-handle:hover,.scene-trim-handle.active{background:rgba(26,82,118,0.35);}
 .scene-trim-handle.left{left:0;}
@@ -326,10 +327,19 @@ input[type=color]{width:32px;height:28px;border-radius:6px;border:2px solid var(
   </div>
 
   <div id="main">
-    <!-- dải icon trái kiểu CapCut -->
+    <!-- dải icon trái kiểu CapCut: gộp cả điều hướng panel + công cụ nhanh -->
     <div id="leftRail">
       <button class="rail-btn active" data-panel="media"><span class="rail-icon">🖼️</span>Tệp</button>
       <button class="rail-btn" data-panel="audio"><span class="rail-icon">🎵</span>Âm thanh</button>
+      <div class="rail-sep"></div>
+      <button class="rail-btn tool-btn" data-tool="text"><span class="rail-icon">📝</span>Văn bản</button>
+      <button class="rail-btn tool-btn" data-tool="sticker"><span class="rail-icon">🏷️</span>Nhãn dán</button>
+      <button class="rail-btn tool-btn" data-tool="effect"><span class="rail-icon">✨</span>Hiệu ứng</button>
+      <button class="rail-btn tool-btn" data-tool="transition"><span class="rail-icon">⏭</span>Chuyển tiếp</button>
+      <button class="rail-btn tool-btn" data-tool="caption"><span class="rail-icon">💬</span>Chú thích</button>
+      <button class="rail-btn tool-btn" data-tool="filter"><span class="rail-icon">🎚</span>Bộ lọc</button>
+      <button class="rail-btn tool-btn" data-tool="adjust"><span class="rail-icon">🎛</span>Điều chỉnh</button>
+      <button class="rail-btn tool-btn" data-tool="avatar"><span class="rail-icon">🧑</span>Ảnh đại diện AI</button>
     </div>
 
     <div id="leftPanel">
@@ -380,16 +390,6 @@ input[type=color]{width:32px;height:28px;border-radius:6px;border:2px solid var(
       </div>
     </div>
 
-    <div id="toolRail">
-      <button class="rail-btn tool-btn" data-tool="text"><span class="rail-icon">📝</span>Văn bản</button>
-      <button class="rail-btn tool-btn" data-tool="sticker"><span class="rail-icon">🏷️</span>Nhãn dán</button>
-      <button class="rail-btn tool-btn" data-tool="effect"><span class="rail-icon">✨</span>Hiệu ứng</button>
-      <button class="rail-btn tool-btn" data-tool="transition"><span class="rail-icon">⏭</span>Chuyển tiếp</button>
-      <button class="rail-btn tool-btn" data-tool="caption"><span class="rail-icon">💬</span>Chú thích</button>
-      <button class="rail-btn tool-btn" data-tool="filter"><span class="rail-icon">🎚</span>Bộ lọc</button>
-      <button class="rail-btn tool-btn" data-tool="adjust"><span class="rail-icon">🎛</span>Điều chỉnh</button>
-      <button class="rail-btn tool-btn" data-tool="avatar"><span class="rail-icon">🧑</span>Ảnh đại diện AI</button>
-    </div>
     <div id="inspectorBackdrop"></div>
     <div id="inspector">
       <div class="inspector-empty" id="inspectorEmpty">Chọn một cảnh trong dải phim<br>bên dưới để chỉnh sửa.</div>
@@ -409,7 +409,9 @@ input[type=color]{width:32px;height:28px;border-radius:6px;border:2px solid var(
   <div id="timelineWrap">
     <div id="timelineToolbar">
       <div class="timeline-tools">
-        <button class="btn btn-icon" id="btnCut" title="Cắt (Split)">✂️</button>
+        <button class="btn btn-icon" id="btnSplitLeft" title="Tách & xoá phần bên trái con trỏ">⇤✂</button>
+        <button class="btn btn-icon" id="btnCut" title="Tách tại con trỏ (giữ cả 2 phần)">✂️</button>
+        <button class="btn btn-icon" id="btnSplitRight" title="Tách & xoá phần bên phải con trỏ">✂⇥</button>
         <button class="btn btn-icon" id="btnCopy" title="Sao chép cảnh (Ctrl+C)">📋</button>
         <button class="btn btn-icon" id="btnPaste" title="Dán cảnh (Ctrl+V)">📄</button>
         <button class="btn btn-icon btn-danger" id="btnDeleteSelected" title="Xóa cảnh đã chọn (Delete)">🗑️</button>
@@ -420,6 +422,8 @@ input[type=color]{width:32px;height:28px;border-radius:6px;border:2px solid var(
         <span id="zoomLabel">100%</span>
         <button class="btn btn-icon" id="btnZoomIn" title="Phóng to">+</button>
         <button class="btn btn-sm" id="btnZoomFit">Vừa khung</button>
+        <span style="width:1px;height:22px;background:var(--border-soft);margin:0 4px;"></span>
+        <button class="btn btn-icon" id="btnToggleTimelineHeight" title="Tăng/giảm bề rộng timeline">⤢</button>
       </div>
       <div class="hint-text" style="margin:0;">Space: play/pause · Delete: xoá cảnh · ←/→: chuyển cảnh</div>
     </div>
@@ -666,6 +670,7 @@ async function doSave() {
         transition: s.transition || 'cut', transitionDur: s.transitionDur || 0.5,
         filter: s.filter || DEFAULT_FILTER,
         overlays: (s.overlays || []).map(o => ({ ...o })),
+        locked: !!s.locked, muted: !!s.muted,
         narrationMode: s.narrationMode, narrationBlob: s.narrationBlob || null,
         narrationDuration: s.narrationDuration || 0, ttsText: s.ttsText || '',
       })),
@@ -684,9 +689,9 @@ function setSaveIndicator(state) {
 }
 
 // ---- dải icon trái: chuyển đổi panel ----
-document.querySelectorAll('.rail-btn').forEach(btn => {
+document.querySelectorAll('.rail-btn[data-panel]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.rail-btn').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.rail-btn[data-panel]').forEach(b => b.classList.toggle('active', b === btn));
     document.getElementById('panelMedia').style.display = btn.dataset.panel === 'media' ? 'flex' : 'none';
     document.getElementById('panelAudio').style.display = btn.dataset.panel === 'audio' ? 'flex' : 'none';
   });
@@ -1021,6 +1026,7 @@ function addSceneFromLibrary(item, atIndex) {
     trimStart: 0, effect: 'kenburns', caption: '',
     transition: 'cut', transitionDur: 0.5,
     filter: { ...DEFAULT_FILTER }, overlays: [],
+    locked: false, muted: false,
     narrationMode: 'none', narrationBlob: null, narrationURL: null,
     narrationDuration: 0, ttsText: '', narrWaveform: null,
   };
@@ -1089,8 +1095,8 @@ function renderTimelineTracks() {
   }
   project.scenes.forEach((scene, i) => {
     const frame = document.createElement('div');
-    frame.className = 'scene-frame' + (scene.id === selectedSceneId ? ' selected' : '');
-    frame.draggable = true;
+    frame.className = 'scene-frame' + (scene.id === selectedSceneId ? ' selected' : '') + (scene.locked ? ' locked' : '');
+    frame.draggable = !scene.locked;
     frame.style.width = Math.max(34, scene.duration * px) + 'px';
     frame.dataset.index = i;
     let thumbEl;
@@ -1101,8 +1107,18 @@ function renderTimelineTracks() {
     const info = document.createElement('div'); info.className = 'scene-frame-info'; info.innerHTML = `<span>${scene.duration.toFixed(1)}s</span>`;
     const del = document.createElement('button');
     del.className = 'scene-frame-del'; del.innerHTML = '✕'; del.title = 'Xoá cảnh này';
-    del.onclick = (e) => { e.stopPropagation(); removeScene(scene.id); };
+    del.onclick = (e) => { e.stopPropagation(); if (scene.locked) { toast('Cảnh đang khoá — mở khoá trước khi xoá'); return; } removeScene(scene.id); };
     frame.appendChild(thumbEl); frame.appendChild(num); frame.appendChild(info); frame.appendChild(del);
+    const lockBtn = document.createElement('button');
+    lockBtn.className = 'scene-frame-lock'; lockBtn.innerHTML = scene.locked ? '🔒' : '🔓';
+    lockBtn.title = scene.locked ? 'Mở khoá cảnh' : 'Khoá cảnh (chống sửa nhầm)';
+    lockBtn.onclick = (e) => { e.stopPropagation(); scene.locked = !scene.locked; markDirty(); renderTimelineTracks(); };
+    frame.appendChild(lockBtn);
+    const muteBtn = document.createElement('button');
+    muteBtn.className = 'scene-frame-mute-btn'; muteBtn.innerHTML = scene.muted ? '🔇' : '🔊';
+    muteBtn.title = scene.muted ? 'Bật tiếng cảnh này' : 'Tắt tiếng cảnh này';
+    muteBtn.onclick = (e) => { e.stopPropagation(); scene.muted = !scene.muted; markDirty(); renderTimelineTracks(); };
+    frame.appendChild(muteBtn);
     if (scene.narrationMode === 'record' || scene.narrationMode === 'upload') {
       const mic = document.createElement('div'); mic.className = 'scene-frame-narr'; mic.innerHTML = '♪';
       frame.appendChild(mic);
@@ -1127,7 +1143,7 @@ function renderTimelineTracks() {
     frame.appendChild(leftHandle); frame.appendChild(rightHandle);
 
     frame.onclick = () => selectScene(scene.id);
-    frame.addEventListener('dragstart', (e) => { dragFromIndex = i; frame.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+    frame.addEventListener('dragstart', (e) => { if (scene.locked) { e.preventDefault(); toast('Cảnh đang khoá'); return; } dragFromIndex = i; frame.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
     frame.addEventListener('dragend', () => frame.classList.remove('dragging'));
     frame.addEventListener('dragover', (e) => e.preventDefault());
     frame.addEventListener('drop', (e) => {
@@ -1171,6 +1187,7 @@ function renderTimelineTracks() {
 }
 
 function startTrim(e, scene, side, px) {
+  if (scene.locked) { toast('Cảnh đang khoá — mở khoá để cắt'); return; }
   e.preventDefault(); e.stopPropagation();
   const clientX = e.touches ? e.touches[0].clientX : e.clientX;
   trimState = { sceneId: scene.id, side, startX: clientX, startDuration: scene.duration, startTrimStart: scene.trimStart || 0, pxPerSec: px };
@@ -1242,6 +1259,7 @@ function splitScene() {
   const idx = getSelectedIndex();
   if (idx === -1) { toast('Hãy chọn một cảnh để cắt'); return; }
   const scene = project.scenes[idx];
+  if (scene.locked) { toast('Cảnh đang khoá — mở khoá để cắt'); return; }
   if (scene.duration < 1.5) { toast('Cảnh quá ngắn, không thể cắt'); return; }
   const half = scene.duration / 2;
   const newScene = { ...JSON.parse(JSON.stringify(scene)), id: uid(), duration: half, trimStart: (scene.trimStart || 0) + half, mediaURL: scene.mediaURL, narrationURL: scene.narrationURL, mediaBlob: scene.mediaBlob, narrationBlob: scene.narrationBlob, overlays: (scene.overlays || []).map(o => ({ ...o, id: uid() })) };
@@ -1267,10 +1285,16 @@ function pasteScene() {
   markDirty(); recomputeTotalDuration(); renderTimelineTracks(); selectScene(newScene.id);
   toast('Đã dán cảnh');
 }
-function deleteSelectedScene() { if (!selectedSceneId) { toast('Hãy chọn một cảnh để xoá'); return; } removeScene(selectedSceneId); }
+function deleteSelectedScene() {
+  if (!selectedSceneId) { toast('Hãy chọn một cảnh để xoá'); return; }
+  const scene = getScene(selectedSceneId);
+  if (scene && scene.locked) { toast('Cảnh đang khoá — mở khoá để xoá'); return; }
+  removeScene(selectedSceneId);
+}
 function moveSceneLeft() {
   const idx = getSelectedIndex();
   if (idx <= 0) { toast('Không thể di chuyển sang trái'); return; }
+  if (project.scenes[idx].locked) { toast('Cảnh đang khoá'); return; }
   const scene = project.scenes.splice(idx, 1)[0];
   project.scenes.splice(idx - 1, 0, scene);
   markDirty(); renderTimelineTracks(); selectScene(scene.id);
@@ -1278,9 +1302,43 @@ function moveSceneLeft() {
 function moveSceneRight() {
   const idx = getSelectedIndex();
   if (idx === -1 || idx >= project.scenes.length - 1) { toast('Không thể di chuyển sang phải'); return; }
+  if (project.scenes[idx].locked) { toast('Cảnh đang khoá'); return; }
   const scene = project.scenes.splice(idx, 1)[0];
   project.scenes.splice(idx + 1, 0, scene);
   markDirty(); renderTimelineTracks(); selectScene(scene.id);
+}
+
+// ---- tách trái/phải theo vị trí con trỏ (playhead) ----
+function getPlayheadLocalInfo() {
+  const idx = getSelectedIndex();
+  if (idx === -1) return null;
+  const scene = project.scenes[idx];
+  const globalT = player.playing ? getGlobalElapsed() : (player.pausedElapsed_global != null ? player.pausedElapsed_global : 0);
+  let sceneStart = 0;
+  for (let i = 0; i < idx; i++) sceneStart += project.scenes[i].duration;
+  const local = clamp(globalT - sceneStart, 0, scene.duration);
+  return { scene, local };
+}
+function splitLeftAtPlayhead() {
+  const info = getPlayheadLocalInfo();
+  if (!info) { toast('Hãy chọn 1 cảnh trước'); return; }
+  const { scene, local } = info;
+  if (scene.locked) { toast('Cảnh đang khoá — mở khoá để cắt'); return; }
+  if (local <= 0.05) { toast('Con trỏ đang ở đầu cảnh, không có gì để cắt'); return; }
+  if (scene.type === 'video') scene.trimStart = (scene.trimStart || 0) + local;
+  scene.duration = Math.max(0.2, scene.duration - local);
+  markDirty(); recomputeTotalDuration(); renderTimelineTracks(); renderInspector(); renderPreviewStatic();
+  toast('Đã cắt bỏ phần bên trái con trỏ');
+}
+function splitRightAtPlayhead() {
+  const info = getPlayheadLocalInfo();
+  if (!info) { toast('Hãy chọn 1 cảnh trước'); return; }
+  const { scene, local } = info;
+  if (scene.locked) { toast('Cảnh đang khoá — mở khoá để cắt'); return; }
+  if (local >= scene.duration - 0.05) { toast('Con trỏ đang ở cuối cảnh, không có gì để cắt'); return; }
+  scene.duration = Math.max(0.2, local);
+  markDirty(); recomputeTotalDuration(); renderTimelineTracks(); renderInspector(); renderPreviewStatic();
+  toast('Đã cắt bỏ phần bên phải con trỏ');
 }
 
 // ---- lớp chữ đa tầng ----
@@ -1950,10 +2008,10 @@ function stopSceneMedia(scene) { if (!scene) return; if (scene.type === 'video')
 function startSceneMedia(scene, offsetSec) {
   if (scene.type === 'video') {
     hiddenVideo.src = scene.mediaURL; hiddenVideo.currentTime = (scene.trimStart || 0) + (offsetSec || 0);
-    hiddenVideo.muted = !!(scene.narrationMode === 'record' || scene.narrationMode === 'upload');
+    hiddenVideo.muted = !!scene.muted || !!(scene.narrationMode === 'record' || scene.narrationMode === 'upload');
     hiddenVideo.play().catch(() => {});
   }
-  if ((scene.narrationMode === 'record' || scene.narrationMode === 'upload') && scene.narrationURL) {
+  if (!scene.muted && (scene.narrationMode === 'record' || scene.narrationMode === 'upload') && scene.narrationURL) {
     narrAudio.src = scene.narrationURL; narrAudio.currentTime = offsetSec || 0; narrAudio.play().catch(() => {});
   }
 }
@@ -2066,11 +2124,19 @@ document.getElementById('btnZoomIn').addEventListener('click', () => setTimeline
 document.getElementById('btnZoomOut').addEventListener('click', () => setTimelineZoom(timelineZoom / 1.4));
 document.getElementById('btnZoomFit').addEventListener('click', () => setTimelineZoom(1));
 document.getElementById('btnCut').addEventListener('click', splitScene);
+document.getElementById('btnSplitLeft').addEventListener('click', splitLeftAtPlayhead);
+document.getElementById('btnSplitRight').addEventListener('click', splitRightAtPlayhead);
 document.getElementById('btnCopy').addEventListener('click', copyScene);
 document.getElementById('btnPaste').addEventListener('click', pasteScene);
 document.getElementById('btnDeleteSelected').addEventListener('click', deleteSelectedScene);
 document.getElementById('btnMoveLeft').addEventListener('click', moveSceneLeft);
 document.getElementById('btnMoveRight').addEventListener('click', moveSceneRight);
+let timelineExpanded = false;
+document.getElementById('btnToggleTimelineHeight').addEventListener('click', () => {
+  timelineExpanded = !timelineExpanded;
+  document.getElementById('timelineWrap').classList.toggle('timeline-expanded', timelineExpanded);
+  document.getElementById('btnToggleTimelineHeight').textContent = timelineExpanded ? '⤡' : '⤢';
+});
 
 // ---- phím tắt ----
 document.addEventListener('keydown', (e) => {
