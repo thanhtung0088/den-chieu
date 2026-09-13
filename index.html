@@ -104,6 +104,12 @@ input,textarea,select{font-family:var(--font-body);}
 .rail-btn.active{background:rgba(26,82,118,0.1);color:var(--gold);font-weight:600;}
 
 #leftPanel{width:224px;flex-shrink:0;background:var(--glass-bg);backdrop-filter:blur(8px);border-right:2px solid var(--border-strong);display:flex;flex-direction:column;overflow:hidden;}
+
+/* dải công cụ dọc bên phải (Văn bản/Nhãn dán/Hiệu ứng/Chuyển tiếp/Chú thích/Bộ lọc/Điều chỉnh/Ảnh đại diện AI) */
+#toolRail{width:62px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 4px;background:var(--glass-bg);backdrop-filter:blur(8px);border-left:2px solid var(--border-strong);overflow-y:auto;}
+#toolRail .rail-btn{width:54px;padding:8px 2px;font-size:8.8px;line-height:1.2;}
+#toolRail .rail-icon{font-size:16px;}
+@media (max-width:1100px){ #toolRail{display:none;} }
 .left-panel-content{display:flex;flex-direction:column;height:100%;overflow:hidden;}
 .panel-header{padding:14px 16px 8px;font-family:var(--font-display);font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--gold);flex-shrink:0;display:flex;justify-content:space-between;align-items:center;}
 .panel-header .lib-count{font-size:10px;font-family:var(--font-mono);color:var(--text-muted);}
@@ -199,6 +205,12 @@ input[type=color]{width:32px;height:28px;border-radius:6px;border:2px solid var(
 .zoom-controls{display:flex;align-items:center;gap:4px;}
 #zoomLabel{font-family:var(--font-mono);font-size:10px;color:var(--gold);min-width:34px;text-align:center;}
 #timelineScrollArea{overflow-x:auto;overflow-y:auto;position:relative;padding:0 16px;max-height:190px;}
+#timelineScrollArea::-webkit-scrollbar{height:12px;width:6px;}
+#timelineScrollArea::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:6px;border:2px solid transparent;background-clip:content-box;}
+#timelineScrollArea::-webkit-scrollbar-thumb:hover{background:var(--gold-soft);background-clip:content-box;}
+#timelineScrollArea::-webkit-scrollbar-track{background:rgba(0,0,0,0.05);border-radius:6px;}
+.audio-track-add-inline{margin:2px 0;padding:8px 10px;border:2px dashed var(--border);border-radius:8px;background:rgba(255,255,255,0.3);color:var(--text-muted);font-size:11px;cursor:pointer;text-align:center;transition:border-color .15s,color .15s;}
+.audio-track-add-inline:hover{border-color:var(--gold);color:var(--gold);}
 #timelineInner{position:relative;min-width:100%;}
 #timelineRuler{position:relative;height:18px;cursor:pointer;border-bottom:1px solid var(--border-soft);}
 .ruler-tick{position:absolute;top:0;font-family:var(--font-mono);font-size:8.5px;color:var(--text-muted);white-space:nowrap;transform:translateX(-50%);padding-top:2px;}
@@ -368,6 +380,16 @@ input[type=color]{width:32px;height:28px;border-radius:6px;border:2px solid var(
       </div>
     </div>
 
+    <div id="toolRail">
+      <button class="rail-btn tool-btn" data-tool="text"><span class="rail-icon">📝</span>Văn bản</button>
+      <button class="rail-btn tool-btn" data-tool="sticker"><span class="rail-icon">🏷️</span>Nhãn dán</button>
+      <button class="rail-btn tool-btn" data-tool="effect"><span class="rail-icon">✨</span>Hiệu ứng</button>
+      <button class="rail-btn tool-btn" data-tool="transition"><span class="rail-icon">⏭</span>Chuyển tiếp</button>
+      <button class="rail-btn tool-btn" data-tool="caption"><span class="rail-icon">💬</span>Chú thích</button>
+      <button class="rail-btn tool-btn" data-tool="filter"><span class="rail-icon">🎚</span>Bộ lọc</button>
+      <button class="rail-btn tool-btn" data-tool="adjust"><span class="rail-icon">🎛</span>Điều chỉnh</button>
+      <button class="rail-btn tool-btn" data-tool="avatar"><span class="rail-icon">🧑</span>Ảnh đại diện AI</button>
+    </div>
     <div id="inspectorBackdrop"></div>
     <div id="inspector">
       <div class="inspector-empty" id="inspectorEmpty">Chọn một cảnh trong dải phim<br>bên dưới để chỉnh sửa.</div>
@@ -609,7 +631,7 @@ async function dbDelete(id) {
 
 // ---- state ----
 const ASPECTS = { '16:9': { w: 1280, h: 720 }, '9:16': { w: 720, h: 1280 }, '1:1': { w: 1080, h: 1080 } };
-const DEFAULT_FILTER = { brightness: 1, contrast: 1, saturate: 1 };
+const DEFAULT_FILTER = { brightness: 1, contrast: 1, saturate: 1, tintColor: '#000000', tintAlpha: 0 };
 let project = {
   id: uid(), name: 'Dự án chưa đặt tên', scenes: [],
   audioTracks: [], aspect: '16:9', updatedAt: Date.now(),
@@ -937,7 +959,11 @@ function renderAudioTrackRowsInTimeline(totalW, px) {
   const wrap = document.getElementById('timelineAudioTracksWrap');
   wrap.innerHTML = '';
   if (project.audioTracks.length === 0) {
-    wrap.innerHTML = '<div class="audio-tracks-empty-hint">Chưa có lớp âm thanh — thêm ở icon 🎵 "Âm thanh" bên trái.</div>';
+    const addRow = document.createElement('div');
+    addRow.className = 'audio-track-add-inline';
+    addRow.textContent = '+ Thêm nhạc nền / âm thanh cho video';
+    addRow.onclick = () => document.getElementById('audioTrackFileInput').click();
+    wrap.appendChild(addRow);
     return;
   }
   project.audioTracks.forEach(t => {
@@ -1274,9 +1300,48 @@ function getOverlay(scene, id) { return (scene && scene.overlays || []).find(o =
 function openInspectorMobile() { if (window.innerWidth > 860) return; document.getElementById('inspector').classList.add('open'); document.getElementById('inspectorBackdrop').classList.add('open'); }
 function closeInspectorMobile() { document.getElementById('inspector').classList.remove('open'); document.getElementById('inspectorBackdrop').classList.remove('open'); }
 let micStream = null, micRecorder = null, micChunks = [];
-const MOTION_LABELS = { none: 'Đứng yên', kenburns: 'Lia máy', zoomin: 'Phóng to', zoomout: 'Thu nhỏ' };
-const TRANS_LABELS = { cut: 'Cắt cứng', fade: 'Hoà tan', slide: 'Trượt ngang', zoom: 'Phóng to', flash: 'Chớp sáng' };
+const MOTION_LABELS = { none: 'Đứng yên', kenburns: 'Lia máy', zoomin: 'Phóng to', zoomout: 'Thu nhỏ', panleft: 'Lia trái', panright: 'Lia phải', cinematic: 'Điện ảnh' };
+const TRANS_LABELS = { cut: 'Cắt cứng', fade: 'Hoà tan', slide: 'Trượt ngang', zoom: 'Phóng to', flash: 'Chớp sáng', wipe: 'Quét ngang', iris: 'Mở tròn', blur: 'Nhoè chuyển', fadezoom: 'Trình chiếu' };
 const ANIM_LABELS = { none: 'Không', fade: 'Mờ dần', slide: 'Trượt lên', pop: 'Phóng to' };
+const FILTER_PRESETS = {
+  none: { brightness: 1, contrast: 1, saturate: 1, tintColor: '#000000', tintAlpha: 0 },
+  cinematic: { brightness: 0.95, contrast: 1.15, saturate: 0.85, tintColor: '#1a2a3a', tintAlpha: 0.18 },
+  warm: { brightness: 1.05, contrast: 1.05, saturate: 1.15, tintColor: '#ff9d42', tintAlpha: 0.12 },
+  cool: { brightness: 1.0, contrast: 1.05, saturate: 1.05, tintColor: '#3aa0ff', tintAlpha: 0.12 },
+  vintage: { brightness: 1.0, contrast: 0.95, saturate: 0.7, tintColor: '#a9793a', tintAlpha: 0.22 },
+  bw: { brightness: 1.02, contrast: 1.1, saturate: 0, tintColor: '#000000', tintAlpha: 0 },
+  vivid: { brightness: 1.05, contrast: 1.2, saturate: 1.5, tintColor: '#000000', tintAlpha: 0 },
+};
+const FILTER_PRESET_LABELS = { none: 'Gốc', cinematic: 'Điện ảnh', warm: 'Ấm áp', cool: 'Lạnh', vintage: 'Hoài cổ', bw: 'Đen trắng', vivid: 'Rực rỡ' };
+
+// ---- dải công cụ dọc bên phải: điều hướng nhanh tới đúng mục trong bảng bên phải ----
+document.querySelectorAll('.tool-btn').forEach(btn => btn.addEventListener('click', () => onToolRailClick(btn.dataset.tool)));
+function switchInspectorTab(tabKey) {
+  const tabBtn = document.querySelector('.insp-tab[data-tab="' + tabKey + '"]');
+  if (tabBtn) tabBtn.click();
+}
+function scrollInspectorTo(selector) {
+  setTimeout(() => { const el = document.querySelector(selector); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
+}
+function onToolRailClick(tool) {
+  if (tool === 'avatar') { document.getElementById('btnLipSync').click(); return; }
+  const scene = getScene(selectedSceneId);
+  if (!scene) { toast('Hãy chọn 1 cảnh trên dải phim trước'); openInspectorMobile(); return; }
+  if (tool === 'text') { switchInspectorTab('basic'); scrollInspectorTo('#overlayList'); }
+  else if (tool === 'sticker') {
+    const ov = addOverlay(scene); ov.text = '⭐'; ov.bg = false; ov.sizePct = 0.14;
+    selectedOverlayId = ov.id; markDirty();
+    switchInspectorTab('basic'); renderOverlayList(scene); renderPreviewStatic(); renderTimelineTracks();
+    scrollInspectorTo('#overlayEditor');
+    toast('Đã thêm nhãn dán — đổi ký tự/emoji trong ô vừa mở');
+  }
+  else if (tool === 'effect') { switchInspectorTab('basic'); scrollInspectorTo('#fEffect'); }
+  else if (tool === 'transition') { switchInspectorTab('basic'); scrollInspectorTo('#fTrans'); }
+  else if (tool === 'caption') { switchInspectorTab('basic'); scrollInspectorTo('#fCaption'); }
+  else if (tool === 'filter') { switchInspectorTab('color'); scrollInspectorTo('#filterPresets'); }
+  else if (tool === 'adjust') { switchInspectorTab('color'); scrollInspectorTo('#fBright'); }
+  openInspectorMobile();
+}
 
 document.querySelectorAll('.insp-tab').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1360,20 +1425,29 @@ function renderInspectorBasic(scene) {
 }
 
 function renderInspectorColor(scene) {
+  scene.filter = { ...DEFAULT_FILTER, ...scene.filter };
+  const presetBtns = Object.keys(FILTER_PRESETS).map(k => `<button data-v="${k}">${FILTER_PRESET_LABELS[k]}</button>`).join('');
   const el = document.getElementById('inspTabColor');
   el.innerHTML = `
-    <div class="field-group"><span class="field-label">Chỉnh màu</span>
+    <div class="field-group" id="filterPresets"><span class="field-label">Bộ lọc dựng sẵn</span>
+      <div class="segmented wrap" id="fPreset">${presetBtns}</div>
+      <div class="hint-text">Chọn 1 bộ lọc rồi tinh chỉnh thêm bên dưới nếu muốn.</div>
+    </div>
+    <div class="field-group"><span class="field-label">Điều chỉnh thủ công</span>
       <div class="field-row"><span style="width:64px;font-size:10.5px;color:var(--text-muted);">Độ sáng</span><input type="range" id="fBright" min="0.5" max="1.6" step="0.02" value="${scene.filter.brightness}"><span class="range-value" id="fBrightLabel">${Math.round(scene.filter.brightness*100)}%</span></div>
       <div class="field-row"><span style="width:64px;font-size:10.5px;color:var(--text-muted);">Tương phản</span><input type="range" id="fContrast" min="0.5" max="1.6" step="0.02" value="${scene.filter.contrast}"><span class="range-value" id="fContrastLabel">${Math.round(scene.filter.contrast*100)}%</span></div>
       <div class="field-row"><span style="width:64px;font-size:10.5px;color:var(--text-muted);">Bão hoà</span><input type="range" id="fSaturate" min="0" max="2" step="0.02" value="${scene.filter.saturate}"><span class="range-value" id="fSaturateLabel">${Math.round(scene.filter.saturate*100)}%</span></div>
       <div class="field-row" style="margin-top:6px;"><button class="btn btn-sm" id="btnResetFilter">Đặt lại màu gốc</button></div>
     </div>
   `;
+  document.getElementById('fPreset').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => { scene.filter = { ...FILTER_PRESETS[btn.dataset.v] }; markDirty(); renderInspectorColor(scene); renderPreviewStatic(); });
+  });
   const bright = document.getElementById('fBright'), contrast = document.getElementById('fContrast'), sat = document.getElementById('fSaturate');
   bright.addEventListener('input', () => { scene.filter.brightness = parseFloat(bright.value); document.getElementById('fBrightLabel').textContent = Math.round(scene.filter.brightness*100)+'%'; markDirty(); renderPreviewStatic(); });
   contrast.addEventListener('input', () => { scene.filter.contrast = parseFloat(contrast.value); document.getElementById('fContrastLabel').textContent = Math.round(scene.filter.contrast*100)+'%'; markDirty(); renderPreviewStatic(); });
   sat.addEventListener('input', () => { scene.filter.saturate = parseFloat(sat.value); document.getElementById('fSaturateLabel').textContent = Math.round(scene.filter.saturate*100)+'%'; markDirty(); renderPreviewStatic(); });
-  document.getElementById('btnResetFilter').addEventListener('click', () => { scene.filter = { ...DEFAULT_FILTER }; markDirty(); renderInspectorColor(scene); renderPreviewStatic(); });
+  document.getElementById('btnResetFilter').addEventListener('click', () => { scene.filter = { ...FILTER_PRESETS.none }; markDirty(); renderInspectorColor(scene); renderPreviewStatic(); });
 }
 
 function renderInspectorAudioTab(scene) {
@@ -1658,9 +1732,27 @@ function computeMotion(effect, progress) {
   if (effect === 'kenburns') return { extraScale: 1 + 0.08 * progress, panX: -1 + 2 * progress };
   if (effect === 'zoomin') return { extraScale: 1 + 0.12 * progress, panX: 0 };
   if (effect === 'zoomout') return { extraScale: 1.12 - 0.12 * progress, panX: 0 };
+  if (effect === 'panleft') return { extraScale: 1.12, panX: 1 - 2 * progress };
+  if (effect === 'panright') return { extraScale: 1.12, panX: -1 + 2 * progress };
+  if (effect === 'cinematic') return { extraScale: 1 + 0.05 * progress, panX: 0 };
   return { extraScale: 1, panX: 0 };
 }
 function filterCss(f) { f = f || DEFAULT_FILTER; return 'brightness(' + f.brightness + ') contrast(' + f.contrast + ') saturate(' + f.saturate + ')'; }
+function drawTint(tctx, filter) {
+  if (!filter || !filter.tintAlpha) return;
+  tctx.save();
+  tctx.globalCompositeOperation = 'overlay';
+  tctx.globalAlpha = filter.tintAlpha;
+  tctx.fillStyle = filter.tintColor || '#000000';
+  tctx.fillRect(0, 0, CW, CH);
+  tctx.restore();
+}
+function drawLetterbox(tctx, amount) {
+  const barH = CH * amount;
+  tctx.fillStyle = '#000';
+  tctx.fillRect(0, 0, CW, barH);
+  tctx.fillRect(0, CH - barH, CW, barH);
+}
 function renderPreviewStatic() {
   const scene = getScene(selectedSceneId) || project.scenes[0];
   document.getElementById('stageEmptyHint').style.display = project.scenes.length === 0 ? 'flex' : 'none';
@@ -1673,6 +1765,8 @@ function renderPreviewStatic() {
       ctx.filter = filterCss(scene.filter);
       drawCover(ctx, img, img.naturalWidth, img.naturalHeight, m.extraScale, m.panX);
       ctx.filter = 'none';
+      drawTint(ctx, scene.filter);
+      if (scene.effect === 'cinematic') drawLetterbox(ctx, 0.08);
       drawVignette(ctx); drawCaption(ctx, scene.caption); drawOverlays(ctx, scene, 0.5);
     };
     if (img.complete) draw(); else img.onload = draw;
@@ -1684,6 +1778,8 @@ function renderPreviewStatic() {
       ctx.filter = filterCss(scene.filter);
       drawCover(ctx, v, v.videoWidth, v.videoHeight, 1, 0);
       ctx.filter = 'none';
+      drawTint(ctx, scene.filter);
+      if (scene.effect === 'cinematic') drawLetterbox(ctx, 0.08);
       drawVignette(ctx); drawCaption(ctx, scene.caption); drawOverlays(ctx, scene, 0.5);
     };
   }
@@ -1700,6 +1796,8 @@ function drawSceneFrame(scene, progress, targetCtx) {
     if (hiddenVideo.readyState >= 2) drawCover(tctx, hiddenVideo, hiddenVideo.videoWidth, hiddenVideo.videoHeight, m.extraScale, m.panX);
   }
   tctx.filter = 'none';
+  drawTint(tctx, scene.filter);
+  if (scene.effect === 'cinematic') drawLetterbox(tctx, 0.08);
   drawVignette(tctx); drawCaption(tctx, scene.caption); drawOverlays(tctx, scene, progress);
 }
 function renderCurrentFrameWithTransition(scene, progress, elapsedInScene) {
@@ -1722,6 +1820,26 @@ function renderCurrentFrameWithTransition(scene, progress, elapsedInScene) {
     ctx.drawImage(bufferCanvas, 0, 0);
     const flashAlpha = Math.max(0, 1 - (elapsedInScene / (trans.dur * 0.6)));
     if (flashAlpha > 0) { ctx.fillStyle = 'rgba(255,255,255,' + flashAlpha + ')'; ctx.fillRect(0, 0, CW, CH); }
+  } else if (trans.type === 'wipe') {
+    ctx.drawImage(trans.snapshot, 0, 0);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, CW * tp, CH); ctx.clip();
+    ctx.drawImage(bufferCanvas, 0, 0); ctx.restore();
+  } else if (trans.type === 'iris') {
+    ctx.drawImage(trans.snapshot, 0, 0);
+    const maxR = Math.hypot(CW / 2, CH / 2);
+    ctx.save(); ctx.beginPath(); ctx.arc(CW / 2, CH / 2, Math.max(1, maxR * tp), 0, Math.PI * 2); ctx.clip();
+    ctx.drawImage(bufferCanvas, 0, 0); ctx.restore();
+  } else if (trans.type === 'blur') {
+    const blurAmt = Math.sin(tp * Math.PI) * 16;
+    ctx.save(); ctx.globalAlpha = 1 - tp; ctx.filter = 'blur(' + blurAmt + 'px)'; ctx.drawImage(trans.snapshot, 0, 0); ctx.restore();
+    ctx.save(); ctx.globalAlpha = tp; ctx.filter = 'blur(' + blurAmt + 'px)'; ctx.drawImage(bufferCanvas, 0, 0); ctx.restore();
+    ctx.filter = 'none'; ctx.globalAlpha = 1;
+  } else if (trans.type === 'fadezoom') {
+    ctx.save(); ctx.globalAlpha = 1 - tp; ctx.drawImage(trans.snapshot, 0, 0); ctx.restore();
+    ctx.save(); ctx.globalAlpha = tp;
+    const s = 1.06 - 0.06 * tp;
+    ctx.translate(CW / 2, CH / 2); ctx.scale(s, s); ctx.translate(-CW / 2, -CH / 2);
+    ctx.drawImage(bufferCanvas, 0, 0); ctx.restore(); ctx.globalAlpha = 1;
   } else ctx.drawImage(bufferCanvas, 0, 0);
 }
 
