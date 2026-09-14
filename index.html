@@ -143,6 +143,8 @@ input,textarea,select{font-family:var(--font-body);}
 #previewCanvas.dragging-overlay{cursor:grabbing;}
 .stage-empty-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#cdd9e2;font-size:13px;text-align:center;padding:20px;pointer-events:none;line-height:1.6;}
 .stage-empty-hint svg{opacity:.4;}
+#canvasTextEditor{position:absolute;display:none;background:rgba(0,0,0,0.35);border:2px dashed var(--gold);border-radius:6px;padding:4px 10px;resize:none;overflow:hidden;font-family:'Be Vietnam Pro',sans-serif;line-height:1.25;z-index:20;color:#fff;outline:none;min-height:1.5em;box-shadow:0 0 0 2000px rgba(0,0,0,0.001);}
+#canvasTextToolbar{position:absolute;display:none;z-index:21;gap:4px;align-items:center;background:var(--glass-bg);backdrop-filter:blur(8px);border:2px solid var(--border-strong);border-radius:8px;padding:4px;box-shadow:0 4px 16px rgba(0,0,0,0.12);}
 #transport{display:flex;align-items:center;gap:14px;margin-top:12px;flex-wrap:wrap;justify-content:center;}
 .time-readout{font-family:var(--font-mono);font-size:12px;color:var(--gold);min-width:90px;text-align:center;}
 .play-btn{width:42px;height:42px;border-radius:50%;background:var(--gold);border:none;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow:0 4px 16px rgba(26,82,118,0.25);transition:transform .15s,box-shadow .15s;}
@@ -199,7 +201,16 @@ input[type=color]{width:32px;height:28px;border-radius:6px;border:2px solid var(
 .timeline-tools .btn-icon{width:30px;height:30px;padding:0;font-size:13px;}
 .zoom-controls{display:flex;align-items:center;gap:4px;}
 #zoomLabel{font-family:var(--font-mono);font-size:10px;color:var(--gold);min-width:34px;text-align:center;}
-#timelineScrollArea{overflow-x:auto;overflow-y:auto;position:relative;padding:0 16px;max-height:190px;transition:max-height .2s;}
+#timelineBody{display:flex;min-height:0;overflow:hidden;}
+#timelineLabels{width:96px;flex-shrink:0;display:flex;flex-direction:column;padding-left:12px;border-right:2px solid var(--border-soft);background:rgba(255,255,255,0.18);overflow-y:auto;}
+.tl-label-row{display:flex;align-items:center;font-size:9.5px;color:var(--text-muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#tlLabelRuler{height:18px;}
+#tlLabelEffects{height:20px;margin:2px 0;}
+#tlLabelScene{height:72px;color:var(--gold);}
+#tlLabelText{height:16px;margin:3px 0;}
+#tlLabelVoice{height:28px;margin:3px 0;}
+.tl-label-audio-row{height:28px;margin-bottom:4px;display:flex;align-items:center;font-size:9.5px;color:var(--text-muted);font-weight:600;overflow:hidden;text-overflow:ellipsis;}
+#timelineScrollArea{overflow-x:auto;overflow-y:auto;position:relative;padding:0 16px;max-height:190px;transition:max-height .2s;flex:1;min-width:0;}
 .timeline-expanded #timelineScrollArea{max-height:380px;}
 #timelineScrollArea::-webkit-scrollbar{height:12px;width:6px;}
 #timelineScrollArea::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:6px;border:2px solid transparent;background-clip:content-box;}
@@ -211,12 +222,18 @@ input[type=color]{width:32px;height:28px;border-radius:6px;border:2px solid var(
 #timelineRuler{position:relative;height:18px;cursor:pointer;border-bottom:1px solid var(--border-soft);}
 .ruler-tick{position:absolute;top:0;font-family:var(--font-mono);font-size:8.5px;color:var(--text-muted);white-space:nowrap;transform:translateX(-50%);padding-top:2px;}
 .ruler-tick::before{content:'';position:absolute;left:50%;top:12px;width:1px;height:5px;background:var(--border);}
-#timelineSceneTrack{display:flex;align-items:stretch;gap:0;min-height:60px;padding:4px 0;}
-#timelineTextTrack{position:relative;height:16px;margin:2px 0 4px;}
+#timelineSceneTrack{display:flex;align-items:stretch;gap:0;height:72px;padding:0;}
+#timelineEffectsTrack{position:relative;height:20px;margin:2px 0;}
+.effects-track-seg{position:absolute;top:1px;height:18px;background:rgba(46,134,193,0.16);border:1px solid var(--gold-dim);border-radius:4px;font-size:8px;color:var(--gold);display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;padding:0 3px;cursor:pointer;}
+#timelineTextTrack{position:relative;height:16px;margin:3px 0;}
 .text-track-seg-wrap{position:absolute;top:0;height:100%;}
 .text-track-bar{position:absolute;top:1px;height:14px;background:var(--gold-soft);border-radius:3px;opacity:.8;}
-#timelineAudioTracksWrap{display:flex;flex-direction:column;gap:3px;padding-bottom:4px;}
-.audio-layer-row{position:relative;height:30px;background:rgba(0,0,0,0.03);border-radius:6px;border:1px solid var(--border-soft);cursor:pointer;overflow:hidden;}
+#timelineVoiceTrack{position:relative;height:28px;margin:3px 0;}
+.voice-track-seg{position:absolute;top:1px;bottom:1px;border-radius:4px;border:1px solid var(--border-soft);cursor:pointer;overflow:hidden;background:rgba(0,0,0,0.02);}
+.voice-track-seg.has-voice{border-color:var(--gold-dim);background:rgba(26,82,118,0.08);}
+.voice-track-seg.tts-hint{display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text-muted);}
+#timelineAudioTracksWrap{display:flex;flex-direction:column;gap:4px;padding-bottom:4px;}
+.audio-layer-row{position:relative;height:28px;background:rgba(0,0,0,0.03);border-radius:6px;border:1px solid var(--border-soft);cursor:pointer;overflow:hidden;}
 .audio-layer-row.selected{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold);}
 .audio-layer-clip{position:absolute;top:2px;bottom:2px;background:rgba(26,82,118,0.14);border:1px solid var(--gold-dim);border-radius:5px;overflow:hidden;}
 .audio-layer-clip.locked{background:rgba(192,57,43,0.08);border-color:var(--danger);}
@@ -381,6 +398,12 @@ input[type=color]{width:32px;height:28px;border-radius:6px;border:2px solid var(
       </div>
       <div id="canvasWrap">
         <canvas id="previewCanvas" width="1280" height="720"></canvas>
+        <textarea id="canvasTextEditor" spellcheck="false" placeholder="Nhập văn bản…"></textarea>
+        <div id="canvasTextToolbar">
+          <button class="btn btn-icon btn-sm" id="btnTextSmaller" title="Chữ nhỏ lại">A−</button>
+          <button class="btn btn-icon btn-sm" id="btnTextBigger" title="Chữ to ra">A+</button>
+          <button class="btn btn-sm btn-primary" id="btnTextDone">✓ Xong</button>
+        </div>
         <div class="stage-empty-hint" id="stageEmptyHint">
           <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white"><rect x="3" y="5" width="18" height="14" rx="2" stroke-width="1.3"/><path d="M3 9H21M8 5V9" stroke-width="1.3"/></svg>
           <div>Thêm ảnh hoặc video vào "Tệp phương tiện"<br>rồi kéo vào dải phim bên dưới để bắt đầu</div>
@@ -432,15 +455,27 @@ input[type=color]{width:32px;height:28px;border-radius:6px;border:2px solid var(
       </div>
       <div class="hint-text" style="margin:0;">Space: play/pause · Delete: xoá cảnh · ←/→: chuyển cảnh</div>
     </div>
-    <div id="timelineScrollArea">
-      <div id="timelineInner">
-        <div id="timelinePlayhead"></div>
-        <div id="timelineRuler"></div>
-        <div id="timelineSceneTrack">
-          <div class="timeline-empty" id="timelineEmptyMsg">Chưa có cảnh nào. Thêm tư liệu ở bên trái rồi bấm "Thêm cảnh".</div>
+    <div id="timelineBody">
+      <div id="timelineLabels">
+        <div class="tl-label-row" id="tlLabelRuler"></div>
+        <div class="tl-label-row" id="tlLabelEffects">✨ Hiệu ứng</div>
+        <div class="tl-label-row" id="tlLabelScene">🎬 Video/Ảnh</div>
+        <div class="tl-label-row" id="tlLabelText">📝 Văn bản</div>
+        <div class="tl-label-row" id="tlLabelVoice">🎙 Giọng nói</div>
+        <div id="timelineMusicLabels"></div>
+      </div>
+      <div id="timelineScrollArea">
+        <div id="timelineInner">
+          <div id="timelinePlayhead"></div>
+          <div id="timelineRuler"></div>
+          <div id="timelineEffectsTrack"></div>
+          <div id="timelineSceneTrack">
+            <div class="timeline-empty" id="timelineEmptyMsg">Chưa có cảnh nào. Thêm tư liệu ở bên trái rồi bấm "Thêm cảnh".</div>
+          </div>
+          <div id="timelineTextTrack"></div>
+          <div id="timelineVoiceTrack"></div>
+          <div id="timelineAudioTracksWrap"></div>
         </div>
-        <div id="timelineTextTrack"></div>
-        <div id="timelineAudioTracksWrap"></div>
       </div>
     </div>
   </div>
@@ -1044,6 +1079,62 @@ function renderTextTrackRow(px) {
   });
   row.style.width = (player.totalDuration * px) + 'px';
 }
+function renderEffectsTrackRow(px) {
+  const row = document.getElementById('timelineEffectsTrack');
+  row.innerHTML = '';
+  let offset = 0;
+  project.scenes.forEach(scene => {
+    const seg = document.createElement('div');
+    seg.className = 'effects-track-seg';
+    seg.style.left = (offset * px) + 'px';
+    seg.style.width = Math.max(3, scene.duration * px) + 'px';
+    const label = (MOTION_LABELS[scene.effect] || '') + (scene.transition && scene.transition !== 'cut' ? ' · ' + TRANS_LABELS[scene.transition] : '');
+    seg.textContent = label; seg.title = label;
+    seg.onclick = () => { selectScene(scene.id); switchInspectorTab('basic'); scrollInspectorTo('#fEffect'); };
+    row.appendChild(seg);
+    offset += scene.duration;
+  });
+  row.style.width = (player.totalDuration * px) + 'px';
+}
+function renderVoiceTrackRow(px) {
+  const row = document.getElementById('timelineVoiceTrack');
+  row.innerHTML = '';
+  let offset = 0;
+  project.scenes.forEach(scene => {
+    const seg = document.createElement('div');
+    seg.className = 'voice-track-seg';
+    seg.style.left = (offset * px) + 'px';
+    seg.style.width = Math.max(3, scene.duration * px) + 'px';
+    if (scene.narrationMode === 'record' || scene.narrationMode === 'upload') {
+      seg.classList.add('has-voice');
+      const waveC = document.createElement('canvas');
+      waveC.width = Math.max(1, Math.round(scene.duration * px)); waveC.height = 26;
+      seg.appendChild(waveC);
+      if (scene.narrWaveform) drawWaveformStatic(waveC, scene.narrWaveform, 'rgba(26,82,118,0.6)');
+    } else if (scene.narrationMode === 'tts') {
+      seg.classList.add('tts-hint'); seg.textContent = '🔈 đọc thử';
+    }
+    seg.onclick = () => { selectScene(scene.id); switchInspectorTab('audio'); };
+    row.appendChild(seg);
+    offset += scene.duration;
+  });
+  row.style.width = (player.totalDuration * px) + 'px';
+}
+function renderTimelineMusicLabels() {
+  const wrap = document.getElementById('timelineMusicLabels');
+  wrap.innerHTML = '';
+  if (project.audioTracks.length === 0) {
+    const row = document.createElement('div'); row.className = 'tl-label-audio-row'; row.textContent = '🎵 Nhạc nền';
+    wrap.appendChild(row);
+  } else {
+    project.audioTracks.forEach((t, i) => {
+      const row = document.createElement('div'); row.className = 'tl-label-audio-row';
+      row.textContent = (i === 0 ? '🎵 ' : '') + (t.name.length > 11 ? t.name.slice(0, 11) + '…' : t.name);
+      row.title = t.name;
+      wrap.appendChild(row);
+    });
+  }
+}
 
 // ---- scenes ----
 function addSceneFromLibrary(item, atIndex) {
@@ -1208,8 +1299,11 @@ function renderTimelineTracks() {
       ruler.appendChild(tick);
     }
   }
+  renderEffectsTrackRow(px);
   renderTextTrackRow(px);
+  renderVoiceTrackRow(px);
   renderAudioTrackRowsInTimeline(totalW, px);
+  renderTimelineMusicLabels();
   document.getElementById('timelineInner').style.width = totalW + 'px';
   updatePlayheadPosition(player.playing ? getGlobalElapsed() : (player.pausedElapsed_global != null ? player.pausedElapsed_global : 0));
 }
@@ -1386,8 +1480,8 @@ function getOverlay(scene, id) { return (scene && scene.overlays || []).find(o =
 function openInspectorMobile() { if (window.innerWidth > 860) return; document.getElementById('inspector').classList.add('open'); document.getElementById('inspectorBackdrop').classList.add('open'); }
 function closeInspectorMobile() { document.getElementById('inspector').classList.remove('open'); document.getElementById('inspectorBackdrop').classList.remove('open'); }
 let micStream = null, micRecorder = null, micChunks = [];
-const MOTION_LABELS = { none: 'Đứng yên', kenburns: 'Lia máy', zoomin: 'Phóng to', zoomout: 'Thu nhỏ', panleft: 'Lia trái', panright: 'Lia phải', cinematic: 'Điện ảnh' };
-const TRANS_LABELS = { cut: 'Cắt cứng', fade: 'Hoà tan', slide: 'Trượt ngang', zoom: 'Phóng to', flash: 'Chớp sáng', wipe: 'Quét ngang', iris: 'Mở tròn', blur: 'Nhoè chuyển', fadezoom: 'Trình chiếu' };
+const MOTION_LABELS = { none: 'Đứng yên', kenburns: 'Lia máy', zoomin: 'Phóng to', zoomout: 'Thu nhỏ', panleft: 'Lia trái', panright: 'Lia phải', cinematic: 'Điện ảnh', shake: 'Rung tay cầm' };
+const TRANS_LABELS = { cut: 'Cắt cứng', fade: 'Hoà tan', slide: 'Trượt ngang', zoom: 'Phóng to', flash: 'Chớp sáng', wipe: 'Quét ngang', wipeup: 'Quét dọc', iris: 'Mở tròn', blur: 'Nhoè chuyển', fadezoom: 'Trình chiếu', rotate: 'Xoay nhẹ' };
 const ANIM_LABELS = { none: 'Không', fade: 'Mờ dần', slide: 'Trượt lên', pop: 'Phóng to' };
 const FILTER_PRESETS = {
   none: { brightness: 1, contrast: 1, saturate: 1, tintColor: '#000000', tintAlpha: 0 },
@@ -1413,7 +1507,13 @@ function onToolRailClick(tool) {
   if (tool === 'avatar') { document.getElementById('btnLipSync').click(); return; }
   const scene = getScene(selectedSceneId);
   if (!scene) { toast('Hãy chọn 1 cảnh trên dải phim trước'); openInspectorMobile(); return; }
-  if (tool === 'text') { switchInspectorTab('basic'); scrollInspectorTo('#overlayList'); }
+  if (tool === 'text') {
+    const ov = addOverlay(scene);
+    ov.text = 'Văn bản mặc định';
+    selectedOverlayId = ov.id;
+    markDirty(); renderOverlayList(scene); renderTimelineTracks();
+    openCanvasTextEditor(scene, ov);
+  }
   else if (tool === 'sticker') {
     const ov = addOverlay(scene); ov.text = '⭐'; ov.bg = false; ov.sizePct = 0.14;
     selectedOverlayId = ov.id; markDirty();
@@ -1733,7 +1833,8 @@ function applyAspectRatio(key, skipRender) {
   document.querySelectorAll('#aspectControl button').forEach(b => b.classList.toggle('active', b.dataset.v === key));
   if (!skipRender) renderPreviewStatic();
 }
-function drawCover(tctx, mediaEl, naturalW, naturalH, extraScale, panX) {
+function drawCover(tctx, mediaEl, naturalW, naturalH, extraScale, panX, panY) {
+  panY = panY || 0;
   if (!naturalW || !naturalH) return;
   const mediaRatio = naturalW / naturalH, canvasRatio = CW / CH;
   let drawW, drawH;
@@ -1741,7 +1842,8 @@ function drawCover(tctx, mediaEl, naturalW, naturalH, extraScale, panX) {
   else { drawW = CW * extraScale; drawH = drawW / mediaRatio; }
   const baseX = (CW - drawW) / 2, baseY = (CH - drawH) / 2;
   const maxPanX = Math.max(0, (drawW - CW) / 2);
-  tctx.drawImage(mediaEl, baseX - maxPanX * panX, baseY, drawW, drawH);
+  const maxPanY = Math.max(0, (drawH - CH) / 2);
+  tctx.drawImage(mediaEl, baseX - maxPanX * panX, baseY - maxPanY * panY, drawW, drawH);
 }
 function wrapText(tctx, text, maxWidth) {
   const words = text.split(/\s+/); const lines = []; let cur = '';
@@ -1815,13 +1917,14 @@ function drawEmptyFrame(tctx, msg) {
 const previewImgCache = new Map();
 function getCachedImg(url) { if (previewImgCache.has(url)) return previewImgCache.get(url); const img = new Image(); img.src = url; previewImgCache.set(url, img); return img; }
 function computeMotion(effect, progress) {
-  if (effect === 'kenburns') return { extraScale: 1 + 0.08 * progress, panX: -1 + 2 * progress };
-  if (effect === 'zoomin') return { extraScale: 1 + 0.12 * progress, panX: 0 };
-  if (effect === 'zoomout') return { extraScale: 1.12 - 0.12 * progress, panX: 0 };
-  if (effect === 'panleft') return { extraScale: 1.12, panX: 1 - 2 * progress };
-  if (effect === 'panright') return { extraScale: 1.12, panX: -1 + 2 * progress };
-  if (effect === 'cinematic') return { extraScale: 1 + 0.05 * progress, panX: 0 };
-  return { extraScale: 1, panX: 0 };
+  if (effect === 'kenburns') return { extraScale: 1 + 0.08 * progress, panX: -1 + 2 * progress, panY: 0 };
+  if (effect === 'zoomin') return { extraScale: 1 + 0.12 * progress, panX: 0, panY: 0 };
+  if (effect === 'zoomout') return { extraScale: 1.12 - 0.12 * progress, panX: 0, panY: 0 };
+  if (effect === 'panleft') return { extraScale: 1.12, panX: 1 - 2 * progress, panY: 0 };
+  if (effect === 'panright') return { extraScale: 1.12, panX: -1 + 2 * progress, panY: 0 };
+  if (effect === 'cinematic') return { extraScale: 1 + 0.05 * progress, panX: 0, panY: 0 };
+  if (effect === 'shake') return { extraScale: 1.06, panX: Math.sin(progress * 46) * 0.35, panY: Math.cos(progress * 39) * 0.35 };
+  return { extraScale: 1, panX: 0, panY: 0 };
 }
 function filterCss(f) { f = f || DEFAULT_FILTER; return 'brightness(' + f.brightness + ') contrast(' + f.contrast + ') saturate(' + f.saturate + ')'; }
 function drawTint(tctx, filter) {
@@ -1849,7 +1952,7 @@ function renderPreviewStatic() {
       ctx.clearRect(0, 0, CW, CH); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, CW, CH);
       const m = computeMotion(scene.effect, 0.5);
       ctx.filter = filterCss(scene.filter);
-      drawCover(ctx, img, img.naturalWidth, img.naturalHeight, m.extraScale, m.panX);
+      drawCover(ctx, img, img.naturalWidth, img.naturalHeight, m.extraScale, m.panX, m.panY);
       ctx.filter = 'none';
       drawTint(ctx, scene.filter);
       if (scene.effect === 'cinematic') drawLetterbox(ctx, 0.08);
@@ -1877,9 +1980,9 @@ function drawSceneFrame(scene, progress, targetCtx) {
   tctx.filter = filterCss(scene.filter);
   if (scene.type === 'image') {
     const img = getCachedImg(scene.mediaURL);
-    if (img.complete && img.naturalWidth) drawCover(tctx, img, img.naturalWidth, img.naturalHeight, m.extraScale, m.panX);
+    if (img.complete && img.naturalWidth) drawCover(tctx, img, img.naturalWidth, img.naturalHeight, m.extraScale, m.panX, m.panY);
   } else {
-    if (hiddenVideo.readyState >= 2) drawCover(tctx, hiddenVideo, hiddenVideo.videoWidth, hiddenVideo.videoHeight, m.extraScale, m.panX);
+    if (hiddenVideo.readyState >= 2) drawCover(tctx, hiddenVideo, hiddenVideo.videoWidth, hiddenVideo.videoHeight, m.extraScale, m.panX, m.panY);
   }
   tctx.filter = 'none';
   drawTint(tctx, scene.filter);
@@ -1910,6 +2013,17 @@ function renderCurrentFrameWithTransition(scene, progress, elapsedInScene) {
     ctx.drawImage(trans.snapshot, 0, 0);
     ctx.save(); ctx.beginPath(); ctx.rect(0, 0, CW * tp, CH); ctx.clip();
     ctx.drawImage(bufferCanvas, 0, 0); ctx.restore();
+  } else if (trans.type === 'wipeup') {
+    ctx.drawImage(trans.snapshot, 0, 0);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, CW, CH * tp); ctx.clip();
+    ctx.drawImage(bufferCanvas, 0, 0); ctx.restore();
+  } else if (trans.type === 'rotate') {
+    ctx.save(); ctx.globalAlpha = 1 - tp;
+    ctx.translate(CW / 2, CH / 2); ctx.rotate((1 - tp) * 0.25); ctx.scale(1 + 0.15 * (1 - tp), 1 + 0.15 * (1 - tp)); ctx.translate(-CW / 2, -CH / 2);
+    ctx.drawImage(trans.snapshot, 0, 0); ctx.restore();
+    ctx.save(); ctx.globalAlpha = tp;
+    ctx.translate(CW / 2, CH / 2); ctx.rotate(-(1 - tp) * 0.25); ctx.scale(1 + 0.15 * (1 - tp), 1 + 0.15 * (1 - tp)); ctx.translate(-CW / 2, -CH / 2);
+    ctx.drawImage(bufferCanvas, 0, 0); ctx.restore(); ctx.globalAlpha = 1;
   } else if (trans.type === 'iris') {
     ctx.drawImage(trans.snapshot, 0, 0);
     const maxR = Math.hypot(CW / 2, CH / 2);
@@ -1950,6 +2064,7 @@ canvas.addEventListener('mousedown', onCanvasPointerDown);
 canvas.addEventListener('touchstart', onCanvasPointerDown, { passive: false });
 function onCanvasPointerDown(e) {
   if (player.playing) return;
+  if (canvasEditorOverlayId) { closeCanvasTextEditor(true); }
   const scene = getScene(selectedSceneId);
   if (!scene) return;
   const { x, y } = canvasEventToXY(e);
@@ -1986,6 +2101,91 @@ function onCanvasPointerUp() {
   window.removeEventListener('touchmove', onCanvasPointerMove);
   window.removeEventListener('touchend', onCanvasPointerUp);
 }
+canvas.addEventListener('dblclick', (e) => {
+  const scene = getScene(selectedSceneId);
+  if (!scene) return;
+  const { x, y } = canvasEventToXY(e);
+  const hit = hitTestOverlay(scene, x, y);
+  if (hit) { selectedOverlayId = hit.id; renderOverlayList(scene); openCanvasTextEditor(scene, hit); }
+});
+
+// ---- gõ chữ trực tiếp trên khung xem trước ----
+let canvasEditorOverlayId = null;
+function openCanvasTextEditor(scene, ov) {
+  canvasEditorOverlayId = ov.id;
+  const editor = document.getElementById('canvasTextEditor');
+  editor.style.display = 'block';
+  editor.value = ov.text || '';
+  document.getElementById('canvasTextToolbar').style.display = 'flex';
+  positionCanvasTextEditor(ov);
+  setTimeout(() => { editor.focus(); editor.select(); }, 30);
+}
+function positionCanvasTextEditor(ov) {
+  const editor = document.getElementById('canvasTextEditor');
+  const toolbar = document.getElementById('canvasTextToolbar');
+  const wrapRect = document.getElementById('canvasWrap').getBoundingClientRect();
+  const canvasRect = canvas.getBoundingClientRect();
+  if (!canvasRect.width || !canvasRect.height) return;
+  const scale = canvasRect.height / CH;
+  const fontPx = Math.max(10, ov.sizePct * CH * scale);
+  editor.style.fontSize = fontPx + 'px';
+  editor.style.color = ov.color || '#ffffff';
+  editor.style.textAlign = ov.align || 'center';
+  editor.style.fontWeight = ov.weight || 700;
+  const lines = (editor.value || ov.text || '').split('\n');
+  const longestLine = lines.reduce((a, b) => a.length > b.length ? a : b, '');
+  const approxWidth = clamp(longestLine.length * fontPx * 0.62 + 28, 90, canvasRect.width - 20);
+  const approxHeight = Math.max(fontPx * 1.5, lines.length * fontPx * 1.3 + 12);
+  let left = ov.xPct * canvasRect.width;
+  if ((ov.align || 'center') === 'center') left -= approxWidth / 2;
+  else if (ov.align === 'right') left -= approxWidth;
+  const top = ov.yPct * canvasRect.height - approxHeight / 2;
+  const baseLeft = canvasRect.left - wrapRect.left + left;
+  const baseTop = canvasRect.top - wrapRect.top + top;
+  editor.style.left = baseLeft + 'px';
+  editor.style.top = baseTop + 'px';
+  editor.style.width = approxWidth + 'px';
+  editor.style.minHeight = approxHeight + 'px';
+  toolbar.style.left = baseLeft + 'px';
+  toolbar.style.top = Math.max(0, baseTop - 40) + 'px';
+}
+function closeCanvasTextEditor(commit) {
+  const editor = document.getElementById('canvasTextEditor');
+  const toolbar = document.getElementById('canvasTextToolbar');
+  const scene = getScene(selectedSceneId);
+  const ov = scene ? getOverlay(scene, canvasEditorOverlayId) : null;
+  if (ov) {
+    if (commit) { ov.text = (editor.value || '').trim() || ov.text; }
+    if (!ov.text) removeOverlay(scene, ov.id);
+    markDirty(); renderOverlayList(scene); renderTimelineTracks();
+  }
+  editor.style.display = 'none'; toolbar.style.display = 'none';
+  canvasEditorOverlayId = null;
+  renderPreviewStatic();
+}
+document.getElementById('canvasTextEditor').addEventListener('input', () => {
+  const scene = getScene(selectedSceneId);
+  const ov = scene ? getOverlay(scene, canvasEditorOverlayId) : null;
+  if (!ov) return;
+  ov.text = document.getElementById('canvasTextEditor').value;
+  positionCanvasTextEditor(ov);
+});
+document.getElementById('canvasTextEditor').addEventListener('blur', () => closeCanvasTextEditor(true));
+document.getElementById('canvasTextEditor').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.target.blur(); }
+});
+document.getElementById('btnTextDone').addEventListener('mousedown', (e) => e.preventDefault());
+document.getElementById('btnTextDone').addEventListener('click', () => closeCanvasTextEditor(true));
+document.getElementById('btnTextSmaller').addEventListener('mousedown', (e) => e.preventDefault());
+document.getElementById('btnTextBigger').addEventListener('mousedown', (e) => e.preventDefault());
+document.getElementById('btnTextSmaller').addEventListener('click', () => {
+  const scene = getScene(selectedSceneId); const ov = scene ? getOverlay(scene, canvasEditorOverlayId) : null;
+  if (!ov) return; ov.sizePct = clamp(ov.sizePct - 0.008, 0.02, 0.16); markDirty(); positionCanvasTextEditor(ov);
+});
+document.getElementById('btnTextBigger').addEventListener('click', () => {
+  const scene = getScene(selectedSceneId); const ov = scene ? getOverlay(scene, canvasEditorOverlayId) : null;
+  if (!ov) return; ov.sizePct = clamp(ov.sizePct + 0.008, 0.02, 0.16); markDirty(); positionCanvasTextEditor(ov);
+});
 
 // ---- player ----
 const player = {
@@ -2605,7 +2805,7 @@ document.getElementById('btnAddMedia').addEventListener('click', () => document.
 document.getElementById('mediaFileInput').addEventListener('change', (e) => { addFilesToLibrary(e.target.files); e.target.value = ''; });
 document.getElementById('btnInspectorToggle').addEventListener('click', () => { const insp = document.getElementById('inspector'); if (insp.classList.contains('open')) closeInspectorMobile(); else openInspectorMobile(); });
 document.getElementById('inspectorBackdrop').addEventListener('click', closeInspectorMobile);
-window.addEventListener('resize', () => renderTimelineTracks());
+window.addEventListener('resize', () => { renderTimelineTracks(); if (canvasEditorOverlayId) { const scene = getScene(selectedSceneId); const ov = scene ? getOverlay(scene, canvasEditorOverlayId) : null; if (ov) positionCanvasTextEditor(ov); } });
 
 // ---- init ----
 async function init() {
