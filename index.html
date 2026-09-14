@@ -219,7 +219,12 @@ input[type=color]{width:32px;height:28px;border-radius:6px;border:2px solid var(
 .audio-layer-row{position:relative;height:30px;background:rgba(0,0,0,0.03);border-radius:6px;border:1px solid var(--border-soft);cursor:pointer;overflow:hidden;}
 .audio-layer-row.selected{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold);}
 .audio-layer-clip{position:absolute;top:2px;bottom:2px;background:rgba(26,82,118,0.14);border:1px solid var(--gold-dim);border-radius:5px;overflow:hidden;}
-.audio-layer-label{position:absolute;top:1px;left:4px;font-size:8.5px;font-family:var(--font-mono);color:var(--gold);z-index:2;pointer-events:none;}
+.audio-layer-clip.locked{background:rgba(192,57,43,0.08);border-color:var(--danger);}
+.audio-layer-label{position:absolute;top:1px;left:4px;font-size:8.5px;font-family:var(--font-mono);color:var(--gold);z-index:2;pointer-events:none;white-space:nowrap;}
+.audio-clip-lock,.audio-clip-mute,.audio-clip-del{position:absolute;top:2px;width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.9);border:none;font-size:9px;display:flex;align-items:center;justify-content:center;z-index:3;cursor:pointer;padding:0;}
+.audio-clip-lock{left:2px;}
+.audio-clip-mute{left:20px;}
+.audio-clip-del{left:38px;color:var(--danger);}
 .audio-tracks-empty-hint{font-size:10.5px;color:var(--text-muted);font-family:var(--font-mono);padding:4px 2px;}
 #timelinePlayhead{position:absolute;top:0;bottom:0;width:3px;background:var(--gold);left:0;pointer-events:none;box-shadow:0 0 8px rgba(26,82,118,0.4);z-index:10;transform:translateX(0px);}
 #timelinePlayhead::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--gold);}
@@ -661,7 +666,7 @@ async function doSave() {
       updatedAt: project.updatedAt,
       audioTracks: project.audioTracks.map(t => ({
         id: t.id, name: t.name, blob: t.blob, volume: t.volume, startSec: t.startSec,
-        fadeIn: t.fadeIn, fadeOut: t.fadeOut, muted: t.muted, loop: t.loop, duration: t.duration,
+        fadeIn: t.fadeIn, fadeOut: t.fadeOut, muted: t.muted, loop: t.loop, locked: !!t.locked, duration: t.duration,
       })),
       scenes: project.scenes.map(s => ({
         id: s.id, type: s.type, mediaBlob: s.mediaBlob,
@@ -825,7 +830,7 @@ function drawWaveformLooped(canvasEl, wave, totalDurationSec, pxPerSec, color) {
 function createAudioTrackItem(file) {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
-    const item = { id: uid(), name: file.name, blob: file, url, volume: 0.8, startSec: 0, fadeIn: 0, fadeOut: 0, muted: false, loop: true, duration: 0, waveform: null };
+    const item = { id: uid(), name: file.name, blob: file, url, volume: 0.8, startSec: 0, fadeIn: 0, fadeOut: 0, muted: false, loop: false, locked: false, duration: 0, waveform: null };
     const a = document.createElement('audio');
     a.preload = 'metadata'; a.src = url;
     a.onloadedmetadata = () => { item.duration = a.duration || 0; resolve(item); };
@@ -844,6 +849,7 @@ async function addAudioTrack(file) {
 function removeAudioTrack(id) {
   const idx = project.audioTracks.findIndex(t => t.id === id);
   if (idx === -1) return;
+  if (project.audioTracks[idx].locked) { toast('Lớp âm thanh đang khoá — mở khoá để xoá'); return; }
   URL.revokeObjectURL(project.audioTracks[idx].url);
   destroyTrackAudioNode(id);
   project.audioTracks.splice(idx, 1);
@@ -865,10 +871,10 @@ function renderAudioTracksUI() {
     project.audioTracks.forEach(t => {
       const row = document.createElement('div');
       row.className = 'audio-chip' + (t.id === selectedAudioTrackId ? ' selected' : '');
-      row.innerHTML = `<span class="audio-chip-name">${t.name}</span>`;
+      row.innerHTML = `<span class="audio-chip-name">${t.locked ? '🔒 ' : ''}${t.name}</span>`;
       const muteBtn = document.createElement('button');
       muteBtn.className = 'audio-chip-mute'; muteBtn.innerHTML = t.muted ? '🔇' : '🔊';
-      muteBtn.onclick = (e) => { e.stopPropagation(); t.muted = !t.muted; markDirty(); renderAudioTracksUI(); };
+      muteBtn.onclick = (e) => { e.stopPropagation(); t.muted = !t.muted; markDirty(); renderAudioTracksUI(); renderTimelineTracks(); };
       const delBtn = document.createElement('button');
       delBtn.className = 'audio-chip-del'; delBtn.innerHTML = '✕';
       delBtn.onclick = (e) => { e.stopPropagation(); removeAudioTrack(t.id); };
@@ -883,23 +889,29 @@ function renderAudioTracksUI() {
 }
 function renderAudioTrackEditor(t) {
   const wrap = document.getElementById('audioTrackEditorWrap');
+  const lockNote = t.locked ? '<div class="warn-text">Lớp này đang khoá — mở khoá (icon 🔒 trên timeline) để chỉnh.</div>' : '';
   wrap.innerHTML = `
     <div class="overlay-editor">
+      ${lockNote}
+      <fieldset style="border:none;padding:0;margin:0;" ${t.locked ? 'disabled' : ''}>
       <div class="field-row"><span style="width:74px;font-size:10.5px;color:var(--text-muted);">Âm lượng</span><input type="range" id="atVolume" min="0" max="100" step="1" value="${Math.round(t.volume * 100)}"><span class="range-value" id="atVolumeLabel">${Math.round(t.volume * 100)}%</span></div>
       <div class="field-row"><span style="width:74px;font-size:10.5px;color:var(--text-muted);">Bắt đầu (s)</span><input type="number" class="field-input" id="atStart" min="0" step="0.1" value="${t.startSec}" style="width:80px;"></div>
       <div class="field-row"><span style="width:74px;font-size:10.5px;color:var(--text-muted);">Mờ vào (s)</span><input type="number" class="field-input" id="atFadeIn" min="0" step="0.1" value="${t.fadeIn}" style="width:80px;"></div>
       <div class="field-row"><span style="width:74px;font-size:10.5px;color:var(--text-muted);">Mờ ra (s)</span><input type="number" class="field-input" id="atFadeOut" min="0" step="0.1" value="${t.fadeOut}" style="width:80px;"></div>
       <div class="field-row" style="margin-top:6px;gap:14px;flex-wrap:wrap;">
-        <label style="font-size:11px;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="atLoop" ${t.loop ? 'checked' : ''}> Lặp lại nếu ngắn hơn video</label>
+        <label style="font-size:11px;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="atLoop" ${t.loop ? 'checked' : ''}> Lặp lại cho đầy video (mặc định để ngắn gọn)</label>
       </div>
-      <div class="field-row" style="margin-top:8px;"><button class="btn btn-sm btn-danger" id="atDelete">🗑️ Xoá lớp này</button></div>
+      </fieldset>
+      <div class="field-row" style="margin-top:8px;"><button class="btn btn-sm btn-danger" id="atDelete" ${t.locked ? 'disabled' : ''}>🗑️ Xoá lớp này</button></div>
     </div>
   `;
-  document.getElementById('atVolume').addEventListener('input', e => { t.volume = parseInt(e.target.value, 10) / 100; document.getElementById('atVolumeLabel').textContent = e.target.value + '%'; markDirty(); });
-  document.getElementById('atStart').addEventListener('input', e => { t.startSec = Math.max(0, parseFloat(e.target.value) || 0); markDirty(); renderTimelineTracks(); });
-  document.getElementById('atFadeIn').addEventListener('input', e => { t.fadeIn = Math.max(0, parseFloat(e.target.value) || 0); markDirty(); });
-  document.getElementById('atFadeOut').addEventListener('input', e => { t.fadeOut = Math.max(0, parseFloat(e.target.value) || 0); markDirty(); });
-  document.getElementById('atLoop').addEventListener('change', e => { t.loop = e.target.checked; markDirty(); renderTimelineTracks(); });
+  if (!t.locked) {
+    document.getElementById('atVolume').addEventListener('input', e => { t.volume = parseInt(e.target.value, 10) / 100; document.getElementById('atVolumeLabel').textContent = e.target.value + '%'; markDirty(); });
+    document.getElementById('atStart').addEventListener('input', e => { t.startSec = Math.max(0, parseFloat(e.target.value) || 0); markDirty(); renderTimelineTracks(); });
+    document.getElementById('atFadeIn').addEventListener('input', e => { t.fadeIn = Math.max(0, parseFloat(e.target.value) || 0); markDirty(); });
+    document.getElementById('atFadeOut').addEventListener('input', e => { t.fadeOut = Math.max(0, parseFloat(e.target.value) || 0); markDirty(); });
+    document.getElementById('atLoop').addEventListener('change', e => { t.loop = e.target.checked; markDirty(); renderTimelineTracks(); });
+  }
   document.getElementById('atDelete').addEventListener('click', () => removeAudioTrack(t.id));
 }
 
@@ -977,11 +989,12 @@ function renderAudioTrackRowsInTimeline(totalW, px) {
     row.style.width = totalW + 'px';
     const dur = t.loop ? Math.max(0, player.totalDuration - t.startSec) : Math.min(t.duration || 0, Math.max(0, player.totalDuration - t.startSec));
     const clip = document.createElement('div');
-    clip.className = 'audio-layer-clip';
+    clip.className = 'audio-layer-clip' + (t.locked ? ' locked' : '');
     clip.style.left = (t.startSec * px) + 'px';
     clip.style.width = Math.max(4, dur * px) + 'px';
     const label = document.createElement('div');
     label.className = 'audio-layer-label';
+    label.style.marginLeft = '44px';
     label.textContent = (t.muted ? '🔇 ' : '') + t.name;
     clip.appendChild(label);
     const waveC = document.createElement('canvas');
@@ -989,6 +1002,21 @@ function renderAudioTrackRowsInTimeline(totalW, px) {
     waveC.style.marginTop = '4px';
     clip.appendChild(waveC);
     if (t.waveform) drawWaveformLooped(waveC, t.waveform, dur, px, 'rgba(26,82,118,0.55)');
+    const lockBtn = document.createElement('button');
+    lockBtn.className = 'audio-clip-lock'; lockBtn.innerHTML = t.locked ? '🔒' : '🔓';
+    lockBtn.title = t.locked ? 'Mở khoá lớp này' : 'Khoá lớp này (chống sửa/xoá nhầm)';
+    lockBtn.onclick = (e) => { e.stopPropagation(); t.locked = !t.locked; markDirty(); renderTimelineTracks(); renderAudioTracksUI(); };
+    clip.appendChild(lockBtn);
+    const muteBtn = document.createElement('button');
+    muteBtn.className = 'audio-clip-mute'; muteBtn.innerHTML = t.muted ? '🔇' : '🔊';
+    muteBtn.title = t.muted ? 'Bật tiếng lớp này' : 'Tắt tiếng lớp này';
+    muteBtn.onclick = (e) => { e.stopPropagation(); t.muted = !t.muted; markDirty(); renderTimelineTracks(); renderAudioTracksUI(); };
+    clip.appendChild(muteBtn);
+    const delBtn = document.createElement('button');
+    delBtn.className = 'audio-clip-del'; delBtn.innerHTML = '✕';
+    delBtn.title = 'Xoá lớp âm thanh này';
+    delBtn.onclick = (e) => { e.stopPropagation(); removeAudioTrack(t.id); };
+    clip.appendChild(delBtn);
     row.appendChild(clip);
     row.onclick = () => { selectedAudioTrackId = t.id; renderAudioTracksUI(); renderTimelineTracks(); };
     wrap.appendChild(row);
